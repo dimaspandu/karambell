@@ -2,14 +2,16 @@
 
 UI pengelolaan sesi kompetisi karambol, terhubung ke Google Sheets melalui Google Apps Script dan proxy API Node.js.
 
-## Jalankan dengan Node.js
-Tidak perlu `npm install` atau dependency tambahan. Pastikan Node.js sudah terpasang, lalu dari folder proyek jalankan:
+## Jalankan secara lokal
+Live Server hanya menyajikan file statis, sehingga request frontend ke `/api/sessions` akan mendapat 404. Jalankan backend Node.js yang sudah menyertakan proxy Google Apps Script:
 
 ```bash
 node server.js
 ```
 
 Buka `http://127.0.0.1:3000`.
+
+Jangan buka aplikasi lewat port Live Server (`5500`); gunakan alamat yang dicetak oleh `node server.js`.
 
 Port dan host bisa diubah melalui environment variable:
 
@@ -27,6 +29,10 @@ Server hanya melayani file statis dengan metode GET/HEAD. Untuk penggunaan lokal
 
 ## Integrasi Google Sheets
 Node.js menjadi proxy server-side ke Google Apps Script. URL Apps Script yang diberikan sudah disetel sebagai default di `server.js`. Bisa dioverride lewat environment variable `APPS_SCRIPT_URL`.
+
+Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di `netlify/functions/api.mjs`. Konfigurasi `netlify.toml` menjalankan `scripts/build-netlify.mjs` untuk menyalin frontend ke `dist/`, lalu mem-publish folder itu. Jika memakai Apps Script deployment lain, atur environment variable `APPS_SCRIPT_URL` pada Netlify untuk scope Functions, lalu deploy ulang.
+
+Untuk menguji function Netlify secara lokal, gunakan Netlify CLI (`netlify dev`); Live Server tidak menjalankan Netlify Functions.
 
 Endpoint lokal:
 - `GET /api/health` — cek server lokal.

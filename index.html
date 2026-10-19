@@ -14,14 +14,14 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Navigasi utama">
-      <a class="brand" href="#" aria-label="Karambol Gamebell beranda">
+      <a class="brand" href="/" data-route="home" aria-label="Karambol Gamebell beranda">
         <span class="brand__icon" aria-hidden="true">●</span>
         <span class="brand__text">Gamebell<span>Karambol Club</span></span>
       </a>
       <nav class="nav">
-        <a class="nav__item nav__item--active" href="#sessions" data-view="sessions"><span>▦</span> Sesi Kompetisi</a>
-        <a class="nav__item" href="#participants" data-view="participants"><span>♟</span> Peserta</a>
-        <a class="nav__item" href="#bracket" data-view="bracket"><span>⌘</span> Bagan Pertandingan</a>
+        <a class="nav__item nav__item--active" href="/?page=competitions" data-route="competitions"><span>▦</span> Sesi Kompetisi</a>
+        <a class="nav__item" href="/?page=participants" data-route="participants"><span>♟</span> Peserta</a>
+        <a class="nav__item" href="/?page=bracket" data-route="bracket"><span>⌘</span> Bagan Pertandingan</a>
       </nav>
       <div class="sidebar__bottom">
         <div class="connection"><span class="connection__dot"></span><span>Mode demo lokal</span></div>
@@ -82,9 +82,9 @@
         </div>
 
         <div class="tabs" role="tablist" aria-label="Detail kompetisi">
-          <button class="tab tab--active" role="tab" aria-selected="true" data-tab="bracket">Bagan</button>
-          <button class="tab" role="tab" aria-selected="false" data-tab="participants">Peserta <span id="participant-tab-count">11</span></button>
-          <button class="tab" role="tab" aria-selected="false" data-tab="matches">Daftar Pertandingan</button>
+          <button class="tab tab--active" role="tab" aria-selected="true" data-route="bracket">Bagan</button>
+          <button class="tab" role="tab" aria-selected="false" data-route="participants">Peserta <span id="participant-tab-count">11</span></button>
+          <button class="tab" role="tab" aria-selected="false" data-route="matches">Daftar Pertandingan</button>
         </div>
 
         <div class="tab-panel tab-panel--active" id="bracket-panel">
@@ -146,6 +146,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="js/router.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

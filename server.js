@@ -160,7 +160,8 @@ const server = http.createServer(async (req, res) => {
       filePath = path.join(filePath, "index.html");
     }
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-      return send(res, 404, "Not Found");
+      if (!path.extname(pathname)) filePath = path.join(ROOT, "index.html");
+      else return send(res, 404, "Not Found");
     }
 
     const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] || "application/octet-stream";

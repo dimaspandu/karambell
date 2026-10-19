@@ -5,9 +5,12 @@
     sessions: [],
     activeSessionId: null,
     activeTab: "bracket",
+    listRouteName: "home",
     toastTimer: null,
-    loading: false
+    loading: false,
+    routeRequest: 0
   };
+  const loadedSessionIds = new Set();
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -85,12 +88,29 @@
     const index = state.sessions.findIndex(item => item.id === session.id);
     if (index >= 0) state.sessions[index] = session;
     else state.sessions.unshift(session);
+    loadedSessionIds.add(session.id);
     return session;
   }
 
   async function fetchSession(sessionId) {
     const payload = await apiRequest(`/api/session?session_id=${encodeURIComponent(sessionId)}`);
-    return normalizeSession(payload);
+    const session = normalizeSession(payload);
+    loadedSessionIds.add(session.id);
+    return session;
+  }
+
+  function handleRoute(route) {
+    const requestId = ++state.routeRequest;
+    if (route.error) showToast(route.error);
+    if (!route.sessionId) {
+      state.activeSessionId = null;
+      state.listRouteName = route.name;
+      showView("sessions");
+      renderSessions();
+      return;
+    }
+    state.listRouteName = null;
+    void openSession(route.sessionId, { tab: route.tab || "bracket", requestId });
   }
 
   async function loadSessions() {
@@ -220,8 +240,13 @@
 
   function showView(view) {
     $$(".view").forEach(section => section.classList.toggle("view--active", section.id === `${view}-view`));
-    $$(".nav__item").forEach(link => link.classList.toggle("nav__item--active", link.dataset.view === (view === "detail" ? state.activeTab === "participants" ? "participants" : state.activeTab === "bracket" ? "bracket" : "sessions" : "sessions")));
-    $("#page-title").textContent = view === "detail" ? "Detail Kompetisi" : "Sesi Kompetisi";
+    const activeRoute = view === "detail"
+      ? state.activeTab === "matches" ? "bracket" : state.activeTab
+      : ["participants", "bracket", "matches"].includes(state.listRouteName) ? state.listRouteName === "matches" ? "bracket" : state.listRouteName : "competitions";
+    $$(".nav__item").forEach(link => link.classList.toggle("nav__item--active", link.dataset.route === activeRoute));
+    $("#page-title").textContent = view === "detail"
+      ? state.activeTab === "participants" ? "Peserta Kompetisi" : state.activeTab === "matches" ? "Daftar Pertandingan" : "Bagan Pertandingan"
+      : ["participants", "bracket", "matches"].includes(state.listRouteName) ? "Pilih Kompetisi" : "Sesi Kompetisi";
   }
 
   function renderSessions() {
@@ -326,16 +351,28 @@
     }).join("");
   }
 
-  async function openSession(id) {
+  async function openSession(id, { tab = "bracket", requestId } = {}) {
     state.activeSessionId = id;
-    state.activeTab = "bracket";
-    setTab("bracket");
+    state.activeTab = tab;
     showView("detail");
+    setTab(tab);
     try {
-      saveSessionInState(await fetchSession(id));
+      let session = state.sessions.find(item => item.id === id);
+      if (!loadedSessionIds.has(id)) session = await fetchSession(id);
+      if (requestId !== state.routeRequest || window.KarambellRouter.resolve().sessionId !== id) return;
+      if (!session || session.id !== id) throw new Error("Kompetisi tidak ditemukan.");
+      saveSessionInState(session);
     } catch (error) {
+      if (requestId !== state.routeRequest || window.KarambellRouter.resolve().sessionId !== id) return;
+      state.activeSessionId = null;
+      state.listRouteName = "competitions";
+      showView("sessions");
+      renderSessions();
       showToast(`Gagal memuat detail sesi: ${error.message}`);
+      window.KarambellRouter.navigate("competitions", {}, { replace: true });
+      return;
     }
+    if (requestId !== state.routeRequest || window.KarambellRouter.resolve().sessionId !== id) return;
     renderDetails();
     renderSessions();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -344,12 +381,12 @@
   function setTab(tab) {
     state.activeTab = tab;
     $$(".tab").forEach(button => {
-      const active = button.dataset.tab === tab;
+      const active = button.dataset.route === tab;
       button.classList.toggle("tab--active", active);
       button.setAttribute("aria-selected", String(active));
     });
     $$(".tab-panel").forEach(panel => panel.classList.toggle("tab-panel--active", panel.id === `${tab}-panel`));
-    $$(".nav__item").forEach(link => link.classList.toggle("nav__item--active", (tab === "participants" && link.dataset.view === "participants") || (tab === "bracket" && link.dataset.view === "bracket") || (tab === "matches" && link.dataset.view === "bracket")));
+    $$(".nav__item").forEach(link => link.classList.toggle("nav__item--active", link.dataset.route === (tab === "matches" ? "bracket" : tab)));
   }
 
   function openScoreModal(matchId) {
@@ -396,7 +433,7 @@
       saveSessionInState(session);
       renderSessions();
       $("#create-session-modal").close();
-      await openSession(session.id);
+      window.KarambellRouter.navigate("bracket", { sessionId: session.id });
       showToast("Sesi tersimpan di Google Sheets.");
       return true;
     } catch (error) {
@@ -432,7 +469,12 @@
   // Event delegation
   document.addEventListener("click", event => {
     const openButton = event.target.closest("[data-open-session]");
-    if (openButton) return openSession(openButton.dataset.openSession);
+    if (openButton) {
+      const targetRoute = ["participants", "bracket", "matches"].includes(state.listRouteName)
+        ? state.listRouteName
+        : "competition-detail";
+      return window.KarambellRouter.navigate(targetRoute, { sessionId: openButton.dataset.openSession });
+    }
     const editButton = event.target.closest("[data-edit-match]");
     if (editButton) return openScoreModal(editButton.dataset.editMatch);
     const closeButton = event.target.closest("[data-close]");
@@ -443,22 +485,20 @@
 
   $("#create-session-open").addEventListener("click", () => $("#create-session-modal").showModal());
   $("#welcome-create").addEventListener("click", () => $("#create-session-modal").showModal());
-  $("#back-to-sessions").addEventListener("click", () => { showView("sessions"); renderSessions(); });
+  $("#back-to-sessions").addEventListener("click", () => window.KarambellRouter.navigate("competitions", {}, { replace: true }));
   $("#add-participant-open").addEventListener("click", () => $("#participant-modal").showModal());
   $("#download-playbook").addEventListener("click", exportPlaybook);
 
-  $$(".tab").forEach(button => button.addEventListener("click", () => setTab(button.dataset.tab)));
-  $$(".nav__item").forEach(link => link.addEventListener("click", event => {
+  $$(".tab").forEach(button => button.addEventListener("click", () => {
+    const session = currentSession();
+    if (session) window.KarambellRouter.navigate(button.dataset.route, { sessionId: session.id });
+  }));
+  $$('a[data-route]').forEach(link => link.addEventListener("click", event => {
     event.preventDefault();
-    if (!currentSession() || link.dataset.view === "sessions") {
-      showView("sessions");
-      renderSessions();
-      return;
-    }
-    const view = link.dataset.view;
-    if (view === "participants") setTab("participants");
-    else if (view === "bracket") setTab("bracket");
-    showView("detail");
+    const route = link.dataset.route;
+    const session = currentSession();
+    if (route === "home" || route === "competitions") return window.KarambellRouter.navigate(route);
+    return window.KarambellRouter.navigate(route, session ? { sessionId: session.id } : {});
   }));
 
   $("#create-session-form").addEventListener("submit", async event => {
@@ -549,5 +589,5 @@
   });
 
   renderSessions();
-  loadSessions();
+  loadSessions().then(() => window.KarambellRouter.start(handleRoute));
 })();

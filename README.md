@@ -12,6 +12,7 @@ node server.js
 Buka `http://127.0.0.1:3000`.
 
 Jangan buka aplikasi lewat port Live Server (`5500`); gunakan alamat yang dicetak oleh `node server.js`.
+Server lokal juga mengembalikan `index.html` untuk path aplikasi seperti `/bracket/<session-id>` saat halaman di-refresh.
 
 Port dan host bisa diubah melalui environment variable:
 
@@ -30,9 +31,20 @@ Server hanya melayani file statis dengan metode GET/HEAD. Untuk penggunaan lokal
 ## Integrasi Google Sheets
 Node.js menjadi proxy server-side ke Google Apps Script. URL Apps Script yang diberikan sudah disetel sebagai default di `server.js`. Bisa dioverride lewat environment variable `APPS_SCRIPT_URL`.
 
-Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di `netlify/functions/api.mjs`. Konfigurasi `netlify.toml` menjalankan `scripts/build-netlify.mjs` untuk menyalin frontend ke `dist/`, lalu mem-publish folder itu. Jika memakai Apps Script deployment lain, atur environment variable `APPS_SCRIPT_URL` pada Netlify untuk scope Functions, lalu deploy ulang.
+Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di `netlify/functions/api.mjs`. Konfigurasi `netlify.toml` menjalankan `scripts/build-netlify.mjs` untuk menyalin frontend ke `dist/`, lalu mem-publish folder itu. Rewrite SPA mengirim path aplikasi ke `index.html`; route API tetap diproses Netlify Function. Jika memakai Apps Script deployment lain, atur environment variable `APPS_SCRIPT_URL` pada Netlify untuk scope Functions, lalu deploy ulang.
 
 Untuk menguji function Netlify secara lokal, gunakan Netlify CLI (`netlify dev`); Live Server tidak menjalankan Netlify Functions.
+
+## URL aplikasi
+Router client-side didefinisikan di `js/router.js`. Refresh pada path ini akan mengirim `index.html`, lalu router memilih tampilan berdasarkan path:
+
+- `/` atau `/competitions` — Dashboard dan daftar kompetisi.
+- `/competitions/<session-id>` — Detail kompetisi, membuka bracket.
+- `/bracket` — Daftar kompetisi untuk dipilih; `/bracket/<session-id>` membuka bracket kompetisi.
+- `/participants` — Daftar kompetisi untuk dipilih; `/participants/<session-id>` membuka peserta kompetisi.
+- `/matches` — Daftar kompetisi untuk dipilih; `/matches/<session-id>` membuka daftar pertandingan.
+
+Path lama `/?session_id=<id>` tetap diarahkan ke `/bracket/<id>`.
 
 Endpoint lokal:
 - `GET /api/health` — cek server lokal.

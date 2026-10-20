@@ -12,6 +12,9 @@
   };
   const loadedSessionIds = new Set();
   const LAST_SESSION_KEY = "karambell:last-session-id";
+  const TEAM_PAIRING_DRAFT_KEY = "karambell:team-pairing-draft";
+  const TEAM_SESSION_IDS_KEY = "karambell:team-session-ids";
+  let generatedTeamPreview = null;
   let bracketResizeObserver = null;
   let bracketConnectorFrame = 0;
   let bracketResizeFallbackBound = false;
@@ -52,6 +55,22 @@
     return payload.data;
   }
 
+  function isLocallyKnownTeamSession(sessionId) {
+    try {
+      const ids = JSON.parse(window.localStorage.getItem(TEAM_SESSION_IDS_KEY) || "[]");
+      return Array.isArray(ids) && ids.includes(String(sessionId));
+    } catch { return false; }
+  }
+
+  function rememberTeamSession(sessionId) {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(TEAM_SESSION_IDS_KEY) || "[]");
+      const ids = Array.isArray(stored) ? stored.map(String) : [];
+      if (!ids.includes(String(sessionId))) ids.push(String(sessionId));
+      window.localStorage.setItem(TEAM_SESSION_IDS_KEY, JSON.stringify(ids));
+    } catch { /* The persisted session format remains the cross-device source. */ }
+  }
+
   function normalizeSession(payload) {
     const raw = payload.session || {};
     const participants = (payload.participants || []).map(participant => ({
@@ -79,6 +98,7 @@
       date: raw.event_date ? String(raw.event_date).slice(0, 10) : "",
       location: String(raw.location || ""),
       format: raw.format === "single_elimination" ? "single" : String(raw.format || "single"),
+      isTeamCompetition: ["team_single_elimination", "team"].includes(String(raw.format || "").toLowerCase()) || isLocallyKnownTeamSession(raw.session_id),
       status: String(raw.status || "draft"),
       participants,
       matches,
@@ -237,12 +257,22 @@
     return session.participants.find(participant => participant.id === id) || null;
   }
 
+  function competitorInitials(session, participant) {
+    if (!participant) return "";
+    if (!session.isTeamCompetition) return initials(participant.name);
+    return participant.name.split(" & ").map(name => initials(name)).join("&");
+  }
+
   function getRoundMatches(session, round) {
     return session.matches.filter(match => match.round === round).sort((a, b) => a.index - b.index);
   }
 
   function completedCount(session) {
     return session.matches.filter(match => match.status === "completed").length;
+  }
+
+  function competitorCountLabel(session) {
+    return session.isTeamCompetition ? `${session.participants.length} tim` : `${session.participants.length} peserta`;
   }
 
   function showToast(message) {
@@ -283,7 +313,7 @@
         <div class="session-card__top"><span class="session-card__emblem">✦</span><span class="session-card__arrow">↗</span></div>
         <h3>${escapeHTML(session.name)}</h3>
         <p class="session-card__meta">${escapeHTML(formatDate(session.date))}${session.location ? ` · ${escapeHTML(session.location)}` : ""}</p>
-        <div class="session-card__bottom"><span>${session.participants.length} peserta</span><span>${session.status === "completed" ? "Selesai" : "Berlangsung"}</span></div>
+        <div class="session-card__bottom"><span>${competitorCountLabel(session)}</span><span>${session.status === "completed" ? "Selesai" : "Berlangsung"}</span></div>
         <div class="progress" aria-label="Progres ${progress}%"><span style="width:${progress}%"></span></div>
         <div class="session-card__bottom"><span>${done} dari ${total} pertandingan selesai</span><span>${champion ? `Juara: ${escapeHTML(champion)}` : `${progress}%`}</span></div>
       </button>`;
@@ -298,13 +328,24 @@
     const finalMatch = session.matches.find(match => match.round === session.totalRounds);
     const champion = finalMatch?.winnerId ? getParticipant(session, finalMatch.winnerId)?.name : null;
     $("#detail-title").textContent = session.name;
-    $("#detail-meta").textContent = `${session.participants.length} peserta · ${formatDate(session.date)}${session.location ? ` · ${session.location}` : ""}`;
+    $("#detail-meta").textContent = `${session.isTeamCompetition ? `${session.participants.length * 2} pemain · ${session.participants.length} tim` : `${session.participants.length} peserta`} · ${formatDate(session.date)}${session.location ? ` · ${session.location}` : ""}`;
     $("#detail-status").textContent = session.status === "completed" ? "Selesai" : "Berlangsung";
+    $("#detail-format").textContent = session.isTeamCompetition ? "Tim · Single elimination" : "Single elimination";
+    $("#stat-participants-label").textContent = session.isTeamCompetition ? "Tim" : "Peserta";
     $("#stat-participants").textContent = session.participants.length;
     $("#stat-matches").textContent = total;
     $("#stat-completed").textContent = `${done} / ${total}`;
     $("#stat-champion").textContent = champion || "Belum ada";
     $("#participant-tab-count").textContent = session.participants.length;
+    $("#participant-tab-label").textContent = session.isTeamCompetition ? "Tim" : "Peserta";
+    $("#participant-list-title").textContent = session.isTeamCompetition ? "Daftar tim" : "Daftar peserta";
+    $("#participant-list-description").textContent = session.isTeamCompetition ? "Setiap tim terdiri dari dua pemain. Komposisi tersimpan bersama kompetisi." : "Peserta yang terdaftar dalam sesi ini.";
+    $("#match-list-description").textContent = session.isTeamCompetition ? "Pilih tim yang menang. Hasil disimpan dan pemenang maju otomatis." : "Perbarui skor atau periksa status setiap pertandingan.";
+    $("#bracket-help").textContent = session.isTeamCompetition ? "Pilih Menang pada tim pemenang; tim lainnya otomatis tercatat Kalah." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor.";
+    $("#match-participants-heading").textContent = session.isTeamCompetition ? "Tim" : "Pemain";
+    $("#match-result-heading").textContent = session.isTeamCompetition ? "Hasil" : "Skor";
+    $("#add-participant-open").hidden = session.isTeamCompetition;
+    $("#team-pairing-locked").hidden = !session.isTeamCompetition;
     renderBracket(session);
     renderParticipants(session);
     renderMatchTable(session);
@@ -317,19 +358,24 @@
     const playerHTML = (player, score, side) => {
       const isWinner = Boolean(player && match.winnerId === player.id);
       const isLoser = Boolean(player && match.winnerId && !isWinner);
+      const result = session.isTeamCompetition
+        ? match.status === "bye" ? (isWinner ? "Menang" : player ? "" : "Bye") : match.winnerId ? (isWinner ? "Menang" : "Kalah") : ""
+        : score === null || score === undefined ? "–" : score;
       return `<div class="match-player ${isWinner ? "match-player--winner" : ""} ${isLoser ? "match-player--loser" : ""} ${!player ? "match-player--empty" : ""}">
-        <span class="match-player__avatar">${player ? escapeHTML(initials(player.name)) : "—"}</span>
+        <span class="match-player__avatar">${player ? escapeHTML(competitorInitials(session, player)) : "—"}</span>
         <span class="match-player__name">${player ? escapeHTML(player.name) : (match.status === "bye" ? "Bye" : "Menunggu")}</span>
-        <span class="match-player__score">${score === null || score === undefined ? "–" : score}</span>
+        <span class="match-player__score ${session.isTeamCompetition && result ? "match-player__result" : ""}">${result}</span>
         ${isWinner ? `<span class="match-player__win" aria-label="Pemenang">✓</span>` : ""}
       </div>`;
     };
     const statusLabel = match.status === "completed" ? "Selesai" : match.status === "bye" ? "Bye" : canEdit ? "Belum dimainkan" : "Menunggu";
-    return `<article class="match-card ${canEdit ? "match-card--clickable" : ""}" data-bracket-round="${round}" data-bracket-index="${match.index}" ${canEdit ? `data-edit-match="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Update skor ${escapeHTML(match.id)}"` : ""}>
+    const editAttribute = !session.isTeamCompetition && canEdit ? `data-edit-match="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Update skor ${escapeHTML(match.id)}"` : "";
+    const teamActions = session.isTeamCompetition && canEdit ? `<div class="team-result-actions"><button type="button" data-team-match="${escapeHTML(match.id)}">${match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button></div>` : "";
+    return `<article class="match-card ${session.isTeamCompetition ? "match-card--teams" : ""} ${!session.isTeamCompetition && canEdit ? "match-card--clickable" : ""}" data-bracket-round="${round}" data-bracket-index="${match.index}" ${editAttribute}>
       <div class="match-card__head"><span>${escapeHTML(match.id)} · ${escapeHTML(matchRoundName(round, session.totalRounds))}</span><span>${statusLabel}</span></div>
       ${playerHTML(player1, match.score1, 1)}
       ${playerHTML(player2, match.score2, 2)}
-      ${canEdit ? `<button class="match-card__edit" type="button" data-edit-match="${escapeHTML(match.id)}">${match.status === "completed" ? "✎ Ubah skor" : "＋ Input skor"}</button>` : ""}
+      ${session.isTeamCompetition ? teamActions : canEdit ? `<button class="match-card__edit" type="button" data-edit-match="${escapeHTML(match.id)}">${match.status === "completed" ? "✎ Ubah skor" : "＋ Input skor"}</button>` : ""}
     </article>`;
   }
 
@@ -348,7 +394,7 @@
     }).join("");
     const finalMatch = session.matches.find(match => match.round === session.totalRounds);
     const champion = finalMatch?.winnerId ? getParticipant(session, finalMatch.winnerId) : null;
-    const championColumn = `<section class="bracket__round bracket__round--champion"><h4 class="bracket__round-title">Juara</h4><div class="champion-card"><div class="champion-card__crown">♛</div><div class="champion-card__avatar">${champion ? escapeHTML(initials(champion.name)) : "?"}</div><strong>${champion ? escapeHTML(champion.name) : "Belum ada"}</strong><p>${champion ? "Juara kompetisi" : "Menunggu final"}</p></div></section>`;
+    const championColumn = `<section class="bracket__round bracket__round--champion"><h4 class="bracket__round-title">Juara</h4><div class="champion-card"><div class="champion-card__crown">♛</div><div class="champion-card__avatar">${champion ? escapeHTML(competitorInitials(session, champion)) : "?"}</div><strong>${champion ? escapeHTML(champion.name) : "Belum ada"}</strong><p>${champion ? "Juara kompetisi" : "Menunggu final"}</p></div></section>`;
     container.innerHTML = columns + championColumn;
     observeBracketForConnectors(container);
   }
@@ -423,16 +469,24 @@
   }
 
   function renderParticipants(session) {
-    $("#participant-list").innerHTML = session.participants.map((participant, index) => `<div class="participant-row"><span class="participant-row__number">${String(index + 1).padStart(2, "0")}</span><span class="participant-row__avatar">${escapeHTML(initials(participant.name))}</span><span class="participant-row__name">${escapeHTML(participant.name)}</span><span class="participant-row__status">Terdaftar</span></div>`).join("");
+    $("#participant-list").innerHTML = session.participants.map((participant, index) => `<div class="participant-row"><span class="participant-row__number">${String(index + 1).padStart(2, "0")}</span><span class="participant-row__avatar">${escapeHTML(competitorInitials(session, participant))}</span><span class="participant-row__name">${escapeHTML(participant.name)}</span><span class="participant-row__status">${session.isTeamCompetition ? `Tim ${String(index + 1).padStart(2, "0")}` : "Terdaftar"}</span></div>`).join("");
   }
 
   function renderMatchTable(session) {
     $("#match-table-body").innerHTML = session.matches.map(match => {
       const p1 = getParticipant(session, match.participant1Id);
       const p2 = getParticipant(session, match.participant2Id);
-      const score = match.score1 === null ? "–" : `${match.score1} — ${match.score2}`;
+      const winnerIsFirst = match.winnerId && match.winnerId === match.participant1Id;
+      const score = session.isTeamCompetition
+        ? match.status === "bye" ? "Bye" : winnerIsFirst ? "Menang — Kalah" : match.winnerId ? "Kalah — Menang" : "Belum dimainkan"
+        : match.score1 === null ? "–" : `${match.score1} — ${match.score2}`;
       const status = match.status === "completed" ? "Selesai" : match.status === "bye" ? "Bye" : p1 && p2 ? "Belum dimainkan" : "Menunggu";
-      return `<tr><td><strong>${escapeHTML(match.id)}</strong></td><td>${escapeHTML(matchRoundName(match.round, session.totalRounds))}</td><td>${p1 ? escapeHTML(p1.name) : "—"} vs ${p2 ? escapeHTML(p2.name) : "—"}</td><td>${score}</td><td><span class="status-pill ${match.status === "completed" ? "status-pill--done" : ""}">${status}</span></td><td>${p1 && p2 ? `<button class="table-action" data-edit-match="${escapeHTML(match.id)}">${match.status === "completed" ? "Ubah skor" : "Input skor"}</button>` : ""}</td></tr>`;
+      const action = p1 && p2
+        ? session.isTeamCompetition
+          ? `<button class="table-action" data-team-match="${escapeHTML(match.id)}">${match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button>`
+          : `<button class="table-action" data-edit-match="${escapeHTML(match.id)}">${match.status === "completed" ? "Ubah skor" : "Input skor"}</button>`
+        : "";
+      return `<tr><td><strong>${escapeHTML(match.id)}</strong></td><td>${escapeHTML(matchRoundName(match.round, session.totalRounds))}</td><td>${p1 ? escapeHTML(p1.name) : "—"} vs ${p2 ? escapeHTML(p2.name) : "—"}</td><td>${score}</td><td><span class="status-pill ${match.status === "completed" ? "status-pill--done" : ""}">${status}</span></td><td>${action}</td></tr>`;
     }).join("");
   }
 
@@ -476,6 +530,85 @@
     $$(".nav__item").forEach(link => link.classList.toggle("nav__item--active", link.dataset.route === (tab === "matches" ? "bracket" : tab)));
   }
 
+  function parseParticipantInput(value) {
+    const names = String(value || "").split(/[\n,;]+/).map(name => name.trim()).filter(Boolean);
+    const seen = new Set();
+    const duplicates = [];
+    names.forEach(name => {
+      const key = name.toLocaleLowerCase("id-ID");
+      if (seen.has(key)) duplicates.push(name);
+      else seen.add(key);
+    });
+    return { names, duplicates };
+  }
+
+  function updatePairingControls() {
+    const input = $("#create-session-form").elements.participants;
+    const { names, duplicates } = parseParticipantInput(input.value);
+    const generateButton = $("#generate-teams");
+    const submitButton = $("#create-session-submit");
+    const summary = $("#pairing-summary");
+    const preview = $("#team-preview");
+    const validCount = names.length >= 4 && names.length % 2 === 0;
+    generateButton.disabled = !validCount || duplicates.length > 0;
+    const previewNames = generatedTeamPreview?.flatMap(team => team.members).map(name => name.toLocaleLowerCase("id-ID")).sort() || [];
+    const inputNames = names.map(name => name.toLocaleLowerCase("id-ID")).sort();
+    const previewStillMatches = generatedTeamPreview && previewNames.length === names.length
+      && previewNames.join("\u0000") === inputNames.join("\u0000");
+    submitButton.disabled = !previewStillMatches || duplicates.length > 0;
+
+    if (duplicates.length) summary.textContent = `Nama duplikat: ${[...new Set(duplicates)].join(", ")}. Hapus duplikat sebelum mengacak tim.`;
+    else if (names.length % 2) summary.textContent = `${names.length} pemain — jumlah ganjil. Tambah atau hapus satu pemain sebelum mengacak tim.`;
+    else if (names.length < 4) summary.textContent = `${names.length} pemain — minimal 4 pemain diperlukan untuk membuat dua tim.`;
+    else summary.textContent = `${names.length} pemain · ${names.length / 2} tim${generatedTeamPreview ? " · pasangan siap disimpan" : " · acak pasangan untuk melanjutkan"}`;
+
+    if (generatedTeamPreview) {
+      preview.innerHTML = generatedTeamPreview.map((team, index) => `<div class="team-preview__item"><span>Tim ${String(index + 1).padStart(2, "0")}</span><strong>${escapeHTML(team.members[0])} &amp; ${escapeHTML(team.members[1])}</strong></div>`).join("");
+    } else {
+      preview.replaceChildren();
+    }
+  }
+
+  function generateRandomTeams() {
+    const input = $("#create-session-form").elements.participants;
+    const { names, duplicates } = parseParticipantInput(input.value);
+    if (duplicates.length || names.length < 4 || names.length % 2) {
+      updatePairingControls();
+      return;
+    }
+    const shuffled = [...names];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    generatedTeamPreview = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+      generatedTeamPreview.push({ id: `draft-team-${i / 2 + 1}`, members: shuffled.slice(i, i + 2) });
+    }
+    try {
+      window.localStorage.setItem(TEAM_PAIRING_DRAFT_KEY, JSON.stringify({ participants: names, teams: generatedTeamPreview }));
+    } catch { /* Sheets remains the persistent source after the session is created. */ }
+    updatePairingControls();
+  }
+
+  function restoreTeamPairingDraft() {
+    let draft;
+    try { draft = JSON.parse(window.localStorage.getItem(TEAM_PAIRING_DRAFT_KEY) || "null"); }
+    catch { draft = null; }
+    if (!draft || !Array.isArray(draft.participants) || !Array.isArray(draft.teams)) return;
+    const draftMembers = draft.teams.flatMap(team => Array.isArray(team.members) ? team.members : []);
+    const expected = draft.participants.map(name => String(name).toLocaleLowerCase("id-ID")).sort();
+    const actual = draftMembers.map(name => String(name).toLocaleLowerCase("id-ID")).sort();
+    if (draft.teams.some(team => !Array.isArray(team.members) || team.members.length !== 2) || expected.length < 4 || expected.length % 2 || new Set(expected).size !== expected.length || expected.join("\u0000") !== actual.join("\u0000")) {
+      try { window.localStorage.removeItem(TEAM_PAIRING_DRAFT_KEY); } catch { /* Ignore unavailable storage. */ }
+      return;
+    }
+    const form = $("#create-session-form");
+    form.elements.participants.value = draft.participants.join(", ");
+    generatedTeamPreview = draft.teams.map((team, index) => ({ id: `draft-team-${index + 1}`, members: team.members.map(String) }));
+    updatePairingControls();
+  }
+
   function openScoreModal(matchId) {
     const session = currentSession();
     const match = session?.matches.find(item => item.id === matchId);
@@ -496,13 +629,66 @@
     $("#score-modal").showModal();
   }
 
-  async function createSession(formData) {
-    const names = String(formData.get("participants") || "").split(/[\n,;]+/).map(name => name.trim()).filter(Boolean);
-    const uniqueNames = [...new Map(names.map(name => [name.toLocaleLowerCase("id-ID"), name])).values()];
-    if (uniqueNames.length < 2) {
-      showToast("Tambahkan minimal 2 peserta.");
+  function openTeamWinnerModal(matchId) {
+    const session = currentSession();
+    const match = session?.matches.find(item => item.id === matchId);
+    if (!session?.isTeamCompetition || !match) return;
+    const team1 = getParticipant(session, match.participant1Id);
+    const team2 = getParticipant(session, match.participant2Id);
+    if (!team1 || !team2) return;
+
+    $("#team-winner-match-label").textContent = `${match.id} · ${matchRoundName(match.round, session.totalRounds)}`;
+    $("#team-winner-match-id").value = match.id;
+    $("#team-winner-options").innerHTML = [team1, team2].map(team => `
+      <label class="team-winner-option ${match.winnerId === team.id ? "team-winner-option--selected" : ""}">
+        <input type="radio" name="winnerId" value="${escapeHTML(team.id)}" ${match.winnerId === team.id ? "checked" : ""} required>
+        <span><strong>${escapeHTML(team.name)}</strong><small>${match.winnerId === team.id ? "Pemenang saat ini" : "Pilih sebagai pemenang"}</small></span>
+      </label>`).join("");
+    $("#team-winner-modal").showModal();
+  }
+
+  async function chooseTeamWinner(matchId, winnerId) {
+    const session = currentSession();
+    const match = session?.matches.find(item => item.id === matchId);
+    if (!session?.isTeamCompetition || !match || ![match.participant1Id, match.participant2Id].includes(winnerId)) return;
+    if (match.winnerId === winnerId) return true;
+    if (match.winnerId) {
+      const previousWinner = getParticipant(session, match.winnerId)?.name || "tim sebelumnya";
+      const nextWinner = getParticipant(session, winnerId)?.name || "tim yang dipilih";
+      if (!window.confirm(`Hasil sudah tercatat: ${previousWinner} menang. Ganti hasil menjadi ${nextWinner} menang? Hasil babak berikutnya yang bergantung pada pertandingan ini juga dapat berubah.`)) return false;
+    }
+
+    const score1 = winnerId === match.participant1Id ? 1 : 0;
+    const score2 = winnerId === match.participant2Id ? 1 : 0;
+    try {
+      const result = await apiRequest("/api/matches/score", {
+        method: "POST",
+        body: JSON.stringify({ session_id: session.id, match_id: match.id, score1, score2 })
+      });
+      const updated = normalizeSession(result);
+      updated.isTeamCompetition = true;
+      updated.format = session.format;
+      saveSessionInState(updated);
+      renderDetails();
+      renderSessions();
+      showToast("Hasil Menang/Kalah tersimpan dan bagan diperbarui.");
+      return true;
+    } catch (error) {
+      showToast(`Gagal menyimpan hasil: ${error.message}`);
       return false;
     }
+  }
+
+  async function createSession(formData) {
+    const { names, duplicates } = parseParticipantInput(formData.get("participants"));
+    const previewNames = generatedTeamPreview?.flatMap(team => team.members).map(name => name.toLocaleLowerCase("id-ID")).sort() || [];
+    const inputNames = names.map(name => name.toLocaleLowerCase("id-ID")).sort();
+    if (duplicates.length || names.length < 4 || names.length % 2 || !generatedTeamPreview || previewNames.join("\u0000") !== inputNames.join("\u0000")) {
+      updatePairingControls();
+      showToast("Periksa jumlah dan nama pemain, lalu acak pasangan sebelum membuat sesi.");
+      return false;
+    }
+    const teamNames = generatedTeamPreview.map(team => team.members.join(" & "));
     const submitButton = $("#create-session-form button[type=submit]");
     submitButton.disabled = true;
     submitButton.textContent = "Menyimpan…";
@@ -513,11 +699,17 @@
           name: String(formData.get("name") || "").trim(),
           event_date: String(formData.get("date") || ""),
           location: String(formData.get("location") || "").trim(),
-          participants: uniqueNames
+          format: String(formData.get("format") || "team_single_elimination"),
+          participants: teamNames
         })
       });
       const session = normalizeSession(result);
+      session.isTeamCompetition = true;
+      session.format = "team_single_elimination";
+      rememberTeamSession(session.id);
       saveSessionInState(session);
+      generatedTeamPreview = null;
+      try { window.localStorage.removeItem(TEAM_PAIRING_DRAFT_KEY); } catch { /* Ignore unavailable storage. */ }
       renderSessions();
       $("#create-session-modal").close();
       window.KarambellRouter.navigate("bracket", { sessionId: session.id });
@@ -527,8 +719,8 @@
       showToast(`Gagal membuat sesi: ${error.message}`);
       return false;
     } finally {
-      submitButton.disabled = false;
       submitButton.textContent = "Buat Sesi";
+      updatePairingControls();
     }
   }
 
@@ -545,11 +737,14 @@
       const p1 = getParticipant(session, match.participant1Id);
       const p2 = getParticipant(session, match.participant2Id);
       const winner = getParticipant(session, match.winnerId);
-      return `<tr><td>${escapeHTML(match.id)}</td><td>${escapeHTML(matchRoundName(match.round, session.totalRounds))}</td><td>${escapeHTML(p1?.name || "Bye")} vs ${escapeHTML(p2?.name || "Bye")}</td><td>${match.score1 ?? "–"} — ${match.score2 ?? "–"}</td><td>${escapeHTML(winner?.name || "Belum selesai")}</td></tr>`;
+      const result = session.isTeamCompetition
+        ? winner ? `${escapeHTML(winner.name)} menang` : match.status === "bye" ? "Bye" : "Belum dimainkan"
+        : `${match.score1 ?? "–"} — ${match.score2 ?? "–"}`;
+      return `<tr><td>${escapeHTML(match.id)}</td><td>${escapeHTML(matchRoundName(match.round, session.totalRounds))}</td><td>${escapeHTML(p1?.name || "Bye")} vs ${escapeHTML(p2?.name || "Bye")}</td><td>${result}</td><td>${escapeHTML(winner?.name || "Belum selesai")}</td></tr>`;
     }).join("");
     printWindow.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Playbook - ${escapeHTML(session.name)}</title><style>
       body{font:14px Arial,sans-serif;color:#25352b;margin:32px}h1{font-size:26px;margin-bottom:5px}h2{font-size:18px;margin-top:28px;border-bottom:2px solid #d9e5d4;padding-bottom:8px}.meta{color:#637367}ul{columns:2;line-height:1.8}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #dce3d8;padding:9px;text-align:left}th{background:#edf2e9}.note{padding:12px;background:#f2f5ed;border-radius:8px;line-height:1.6}@media print{body{margin:16mm}button{display:none}}
-    </style></head><body><h1>${escapeHTML(session.name)}</h1><p class="meta">${escapeHTML(formatDate(session.date))}${session.location ? ` · ${escapeHTML(session.location)}` : ""} · Single elimination</p><h2>Daftar Peserta (${session.participants.length})</h2><ul>${session.participants.map(p => `<li>${escapeHTML(p.name)}</li>`).join("")}</ul><h2>Bagan dan Hasil Pertandingan</h2><table><thead><tr><th>ID</th><th>Babak</th><th>Pertandingan</th><th>Skor</th><th>Pemenang</th></tr></thead><tbody>${matchRows}</tbody></table><h2>Aturan Singkat</h2><div class="note">Catat skor akhir setiap pertandingan dan tetapkan pemenang. Pemenang maju ke babak berikutnya. Playbook ini dibuat dari data sesi saat tombol ditekan.</div><p class="meta">Karambol Gamebell · Playbook kompetisi</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+    </style></head><body><h1>${escapeHTML(session.name)}</h1><p class="meta">${escapeHTML(formatDate(session.date))}${session.location ? ` · ${escapeHTML(session.location)}` : ""} · ${session.isTeamCompetition ? "Tim · Single elimination" : "Single elimination"}</p><h2>${session.isTeamCompetition ? "Daftar Tim" : "Daftar Peserta"} (${session.participants.length})</h2><ul>${session.participants.map(p => `<li>${escapeHTML(p.name)}</li>`).join("")}</ul><h2>Bagan dan Hasil Pertandingan</h2><table><thead><tr><th>ID</th><th>Babak</th><th>Pertandingan</th><th>${session.isTeamCompetition ? "Hasil" : "Skor"}</th><th>Pemenang</th></tr></thead><tbody>${matchRows}</tbody></table><h2>Aturan Singkat</h2><div class="note">${session.isTeamCompetition ? "Pilih tim pemenang pada setiap pertandingan. Pemenang maju ke babak berikutnya." : "Catat skor akhir setiap pertandingan dan tetapkan pemenang. Pemenang maju ke babak berikutnya."} Playbook ini dibuat dari data sesi saat tombol ditekan.</div><p class="meta">Karambol Gamebell · Playbook kompetisi</p><script>window.onload=()=>window.print()<\/script></body></html>`);
     printWindow.document.close();
   }
 
@@ -562,6 +757,8 @@
         : "competition-detail";
       return window.KarambellRouter.navigate(targetRoute, { sessionId: openButton.dataset.openSession });
     }
+    const teamMatchButton = event.target.closest("[data-team-match]");
+    if (teamMatchButton) return openTeamWinnerModal(teamMatchButton.dataset.teamMatch);
     const editButton = event.target.closest("[data-edit-match]");
     if (editButton) return openScoreModal(editButton.dataset.editMatch);
     const closeButton = event.target.closest("[data-close]");
@@ -592,6 +789,14 @@
     event.preventDefault();
     await createSession(new FormData(event.currentTarget));
   });
+  $("#create-session-form").elements.participants.addEventListener("input", () => {
+    generatedTeamPreview = null;
+    try { window.localStorage.removeItem(TEAM_PAIRING_DRAFT_KEY); } catch { /* Ignore unavailable storage. */ }
+    updatePairingControls();
+  });
+  $("#generate-teams").addEventListener("click", generateRandomTeams);
+  restoreTeamPairingDraft();
+  updatePairingControls();
 
   $("#score-form").addEventListener("submit", async event => {
     event.preventDefault();
@@ -632,6 +837,22 @@
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = "Simpan Skor";
+    }
+  });
+
+  $("#team-winner-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const winnerId = new FormData(form).get("winnerId");
+    if (!winnerId) return;
+    submitButton.disabled = true;
+    submitButton.textContent = "Menyimpan…";
+    try {
+      if (await chooseTeamWinner(form.elements.matchId.value, winnerId)) $("#team-winner-modal").close();
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Simpan pemenang";
     }
   });
 

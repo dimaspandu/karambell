@@ -76,7 +76,7 @@
         </div>
 
         <div class="stats-grid" id="stats-grid">
-          <article class="stat-card"><span class="stat-card__icon">♟</span><div><span>Peserta</span><strong id="stat-participants">11</strong></div></article>
+          <article class="stat-card"><span class="stat-card__icon">♟</span><div><span id="stat-participants-label">Peserta</span><strong id="stat-participants">11</strong></div></article>
           <article class="stat-card"><span class="stat-card__icon">⌘</span><div><span>Pertandingan</span><strong id="stat-matches">10</strong></div></article>
           <article class="stat-card"><span class="stat-card__icon">✓</span><div><span>Selesai</span><strong id="stat-completed">0 / 10</strong></div></article>
           <article class="stat-card"><span class="stat-card__icon">♛</span><div><span>Juara</span><strong id="stat-champion">Belum ada</strong></div></article>
@@ -84,13 +84,13 @@
 
         <div class="tabs" role="tablist" aria-label="Detail kompetisi">
           <button class="tab tab--active" role="tab" aria-selected="true" data-route="bracket">Bagan</button>
-          <button class="tab" role="tab" aria-selected="false" data-route="participants">Peserta <span id="participant-tab-count">11</span></button>
+          <button class="tab" role="tab" aria-selected="false" data-route="participants"><span id="participant-tab-label">Peserta</span> <span id="participant-tab-count">11</span></button>
           <button class="tab" role="tab" aria-selected="false" data-route="matches">Daftar Pertandingan</button>
         </div>
 
         <div class="tab-panel tab-panel--active" id="bracket-panel">
           <div class="bracket-toolbar">
-            <div><h3>Bagan pertandingan</h3><p>Tekan kartu pertandingan untuk memasukkan atau memperbarui skor.</p></div>
+            <div><h3>Bagan pertandingan</h3><p id="bracket-help">Tekan kartu pertandingan untuk memasukkan atau memperbarui skor.</p></div>
             <span class="hint"><span class="hint__dot"></span> Pemenang ditandai hijau</span>
           </div>
           <div class="bracket-scroll"><div class="bracket" id="bracket"></div></div>
@@ -98,13 +98,14 @@
         </div>
 
         <div class="tab-panel" id="participants-panel">
-          <div class="panel-heading"><div><h3>Daftar peserta</h3><p>Peserta yang terdaftar dalam sesi ini.</p></div><button class="button button--primary button--small" id="add-participant-open">＋ Tambah Peserta</button></div>
+          <div class="panel-heading"><div><h3 id="participant-list-title">Daftar peserta</h3><p id="participant-list-description">Peserta yang terdaftar dalam sesi ini.</p></div><button class="button button--primary button--small" id="add-participant-open">＋ Tambah Peserta</button></div>
+          <p class="form-note" id="team-pairing-locked" hidden>Komposisi tim dikunci setelah bagan dibuat agar hasil pertandingan tetap valid.</p>
           <div class="participant-list" id="participant-list"></div>
         </div>
 
         <div class="tab-panel" id="matches-panel">
-          <div class="panel-heading"><div><h3>Daftar pertandingan</h3><p>Perbarui skor atau periksa status setiap pertandingan.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Pertandingan</th><th>Babak</th><th>Pemain</th><th>Skor</th><th>Status</th><th></th></tr></thead><tbody id="match-table-body"></tbody></table></div>
+          <div class="panel-heading"><div><h3>Daftar pertandingan</h3><p id="match-list-description">Perbarui skor atau periksa status setiap pertandingan.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Pertandingan</th><th>Babak</th><th id="match-participants-heading">Pemain</th><th id="match-result-heading">Skor</th><th>Status</th><th></th></tr></thead><tbody id="match-table-body"></tbody></table></div>
         </div>
       </section>
     </main>
@@ -114,11 +115,12 @@
     <form id="create-session-form" class="modal__form">
       <div class="modal__heading"><div><span class="eyebrow">SESI BARU</span><h2>Buat kompetisi</h2></div><button type="button" class="icon-button" data-close="create-session-modal" aria-label="Tutup">×</button></div>
       <label>Nama kompetisi<input name="name" required maxlength="80" value="Karambol Gamebell 2026" placeholder="Contoh: Karambol Gamebell 2026"></label>
-      <div class="form-row"><label>Tanggal<input name="date" type="date" value="2026-10-19" required></label><label>Format<select name="format"><option value="single">Single elimination</option></select></label></div>
+      <div class="form-row"><label>Tanggal<input name="date" type="date" value="2026-10-19" required></label><label>Format<select name="format"><option value="team_single_elimination">Tim · Single elimination</option></select></label></div>
       <label>Lokasi <span class="optional">(opsional)</span><input name="location" maxlength="80" placeholder="Contoh: Gamebell Community"></label>
-      <label>Peserta <span class="optional">(pisahkan dengan koma atau baris baru)</span><textarea name="participants" rows="5" required>Rahman, Prastio, Athaya, Dimas, Dedi, Azhar, Rizky, Bastian, Bagas, Faisal, Raihan</textarea></label>
-      <p class="form-note">Bagan akan dibuat otomatis. Jumlah peserta bisa ganjil; sistem akan menambahkan slot bye bila diperlukan.</p>
-      <div class="modal__actions"><button type="button" class="button button--outline" data-close="create-session-modal">Batal</button><button type="submit" class="button button--primary">Buat Sesi</button></div>
+      <label>Pemain <span class="optional">(pisahkan dengan koma atau baris baru; setiap pemain hanya sekali)</span><textarea name="participants" rows="5" required>Rahman, Prastio, Athaya, Dimas, Dedi, Azhar, Rizky, Bastian, Bagas, Faisal, Raihan, Pandu</textarea></label>
+      <div class="team-pairing"><div class="team-pairing__header"><p class="form-note" id="pairing-summary" aria-live="polite">Masukkan pemain untuk melihat jumlah tim.</p><button type="button" class="button button--outline button--small" id="generate-teams">Acak Pasangan</button></div><div class="team-pairing__preview" id="team-preview" aria-live="polite"></div></div>
+      <p class="form-note">Jumlah pemain harus genap dan minimal 4. Tim diacak sekali sebelum sesi dibuat; jumlah tim ganjil tetap bisa memakai bye di bagan.</p>
+      <div class="modal__actions"><button type="button" class="button button--outline" data-close="create-session-modal">Batal</button><button type="submit" class="button button--primary" id="create-session-submit" disabled>Buat Sesi</button></div>
     </form>
   </dialog>
 
@@ -134,6 +136,16 @@
       </div>
       <p class="form-note">Untuk menyelesaikan pertandingan, skor harus berbeda. Simpan akan memperbarui bagan.</p>
       <div class="modal__actions"><button type="button" class="button button--outline" data-close="score-modal">Batal</button><button type="submit" class="button button--primary">Simpan Skor</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal modal--compact" id="team-winner-modal">
+    <form id="team-winner-form" class="modal__form">
+      <div class="modal__heading"><div><span class="eyebrow" id="team-winner-match-label">PERTANDINGAN</span><h2>Tentukan pemenang</h2></div><button type="button" class="icon-button" data-close="team-winner-modal" aria-label="Tutup">×</button></div>
+      <p class="score-intro">Pilih tim yang menang pada pertandingan ini.</p>
+      <input type="hidden" id="team-winner-match-id" name="matchId">
+      <div class="team-winner-options" id="team-winner-options"></div>
+      <div class="modal__actions"><button type="button" class="button button--outline" data-close="team-winner-modal">Batal</button><button type="submit" class="button button--primary">Simpan pemenang</button></div>
     </form>
   </dialog>
 

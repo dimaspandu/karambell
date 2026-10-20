@@ -64,10 +64,11 @@ Buka `http://127.0.0.1:3000`. Node.js 18+ diperlukan karena proxy memakai `fetch
 
 ## Yang sudah bisa dicoba
 - Memuat daftar sesi dari Google Sheets saat halaman dibuka.
-- Membuat sesi baru; sesi, peserta, dan bracket disimpan ke Google Sheets.
+- Membuat sesi tim baru: pemain diacak dengan Fisher–Yates sebelum sesi dibuat. Pasangan tersimpan sebagai baris peserta/kompetitor yang sudah ada, dengan `participant_id` dari Sheets dipakai sebagai ID tim dan `format` menandai mode tim.
+- Kompetisi lama tetap menggunakan peserta individual dan alur skor numerik yang sudah ada.
 - Melihat bracket, peserta, dan daftar pertandingan dari data tersimpan.
-- Input/edit skor; backend menyimpan skor dan memperbarui pemenang di bracket.
-- Menambah peserta sebelum pertandingan dimulai.
+- Memilih Menang untuk setiap tim; aplikasi mengirim `score1`/`score2` numerik (`1`/`0`) melalui endpoint lama agar backend memperbarui pemenang dan babak berikutnya.
+- Menambah peserta individual pada kompetisi lama sebelum pertandingan dimulai. Komposisi tim baru dikunci setelah bracket dibuat supaya hasil tidak rusak.
 - Membuat Playbook melalui dialog cetak browser, lalu pilih **Save as PDF**.
 
 ## Troubleshooting

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bottom Sheet (State-driven)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f5f5f5;
+    }
+
+    /* ==============================
+       APP CONTAINER
+    ============================== */
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+
+      background: white;
+      border-left: 1px solid #ddd;
+      border-right: 1px solid #ddd;
+      position: relative;
+    }
+
+    @media (max-width: 480px) {
+      .app { border: none; }
+    }
+
+    /* ==============================
+       HEADER
+    ============================== */
+
+    header {
+      padding: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    /* ==============================
+       CONTENT
+    ============================== */
+
+    #view {
+      flex: 1;
+      padding: 20px;
+    }
+
+    button {
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* ==============================
+       OVERLAY
+    ============================== */
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms;
+      z-index: 10;
+    }
+
+    #overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ==============================
+       BOTTOM SHEET
+    ============================== */
+
+    #sheet {
+      position: fixed;
+      left: 50%;
+      transform: translate(-50%, 100%);
+      bottom: 0;
+
+      width: 100%;
+      max-width: 480px;
+
+      height: 300px;
+      background: white;
+
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+
+      transition: transform 300ms;
+      padding: 20px;
+
+      z-index: 20;
+    }
+
+    #sheet.active {
+      transform: translate(-50%, 0);
+    }
+
+    #sheet h2 {
+      margin-top: 0;
+    }
+
+    .desc {
+      font-size: 13px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <header>
+      <h1>Bottom Sheet</h1>
+    </header>
+
+    <div id="view">
+      <p>This demo shows how route controls UI state.</p>
+      <button id="open">Open Details</button>
+
+      <p class="desc">
+        Try opening the sheet, then press back.
+      </p>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div id="overlay"></div>
+
+  <!-- Bottom Sheet -->
+  <div id="sheet">
+    <h2>Details</h2>
+    <p>This bottom sheet is controlled by route.</p>
+
+    <button id="close">Close</button>
+  </div>
+
+  <script type="module" src="/src/index.js"></script>
+  <script type="module">
+    const sheet = document.getElementById("sheet");
+    const overlay = document.getElementById("overlay");
+    const openBtn = document.getElementById("open");
+    const closeBtn = document.getElementById("close");
+
+    // ==============================
+    // CONFIG
+    // ==============================
+
+    history.config({
+      base: "/examples/08-bottom-sheet",
+      mode: "history"
+    });
+
+    // ==============================
+    // UI HELPERS
+    // ==============================
+
+    function openSheet() {
+      overlay.classList.add("active");
+      sheet.classList.add("active");
+    }
+
+    function closeSheet() {
+      overlay.classList.remove("active");
+      sheet.classList.remove("active");
+    }
+
+    // ==============================
+    // ROUTES (STATE = UI)
+    // ==============================
+
+    history.router("/", {
+      onMeet() {
+        closeSheet();
+      }
+    });
+
+    history.router("/details", {
+      onMeet() {
+        openSheet();
+      }
+    });
+
+    // ==============================
+    // USER ACTIONS
+    // ==============================
+
+    openBtn.onclick = () => {
+      history.navigatePush("/details");
+    };
+
+    closeBtn.onclick = () => {
+      history.navigatePop();
+    };
+
+    overlay.onclick = () => {
+      history.navigatePop();
+    };
+
+    // ==============================
+    // INITIAL SYNC
+    // ==============================
+
+    history.navigateReplace(location.pathname + location.search);
+  </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mobile Navigation (Push + End Route)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f5f5f5;
+      font-family: sans-serif;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: white;
+      border-left: 1px solid #ddd;
+      border-right: 1px solid #ddd;
+    }
+
+    @media (max-width: 480px) {
+      .app { border: none; }
+    }
+
+    #view {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    h2 { margin-top: 0; }
+
+    .desc {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .box {
+      margin-top: 15px;
+      padding: 10px;
+      background: #fafafa;
+      border: 1px solid #eee;
+    }
+
+    nav {
+      display: flex;
+      border-top: 1px solid #ddd;
+      background: white;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    nav button.active {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <div id="view"></div>
+
+    <nav>
+      <button data-link="/">Home</button>
+      <button data-link="/about">About</button>
+      <button data-link="/transaction">Transaction</button>
+      <button data-link="/settings">Settings</button>
+    </nav>
+  </div>
+
+  <script type="module" src="/src/index.js"></script>
+  <script type="module">
+    const view = document.getElementById("view");
+
+    history.config({
+      base: "/examples/06-end-route"
+    });
+
+    // ==============================
+    // NAVIGATION (PUSH DEMO)
+    // ==============================
+
+    document.querySelectorAll("nav button").forEach(btn => {
+      btn.onclick = () => {
+        const target = btn.dataset.link;
+
+        if (location.pathname.endsWith(target)) return;
+
+        history.navigatePush(target);
+      };
+    });
+
+    function setActive(path) {
+      document.querySelectorAll("nav button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.link === path);
+      });
+    }
+
+    function render(title, content, extra = "") {
+      view.innerHTML = `
+        <h2>${title}</h2>
+        <p>${content}</p>
+
+        <p class="desc">
+          Using PUSH navigation.<br/>
+          Press browser back to observe behavior.
+        </p>
+
+        ${extra}
+      `;
+    }
+
+    // ==============================
+    // STATE (for dynamic end)
+    // ==============================
+
+    let allowExit = false;
+
+    // ==============================
+    // ROUTES
+    // ==============================
+
+    /**
+     * HOME → boolean end
+     * Always terminal route
+     */
+    history.router("/", {
+      end: true,
+      onMeet() {
+        setActive("/");
+        render(
+          "Home (end: true)",
+          "This route always exits when pressing back."
+        );
+      }
+    });
+
+    /**
+     * ABOUT → dynamic end (function)
+     */
+    history.router("/about", {
+      end(ctx) {
+        // Only allow exit if toggle is enabled
+        return allowExit;
+      },
+
+      onMeet() {
+        setActive("/about");
+
+        render(
+          "About (end: function)",
+          "Back will exit ONLY if toggle is enabled.",
+          `
+          <div class="box">
+            <label>
+              <input type="checkbox" id="toggle" />
+              Allow exit on back
+            </label>
+          </div>
+          `
+        );
+
+        const toggle = document.getElementById("toggle");
+
+        toggle.checked = allowExit;
+
+        toggle.onchange = () => {
+          allowExit = toggle.checked;
+        };
+      }
+    });
+
+    history.router("/transaction", {
+      onMeet() {
+        setActive("/transaction");
+        render("Transaction", "Transaction list.");
+      }
+    });
+
+    history.router("/settings", {
+      onMeet() {
+        setActive("/settings");
+        render("Settings", "Application settings.");
+      }
+    });
+
+    // ==============================
+    // INITIAL SYNC
+    // ==============================
+
+    history.navigateReplace(location.pathname);
+  </script>
+</body>
+</html>

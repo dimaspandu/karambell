@@ -11,6 +11,7 @@
     routeRequest: 0
   };
   const loadedSessionIds = new Set();
+  const LAST_SESSION_KEY = "karambell:last-session-id";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -103,6 +104,17 @@
     const requestId = ++state.routeRequest;
     if (route.error) showToast(route.error);
     if (!route.sessionId) {
+      if (["participants", "bracket", "matches"].includes(route.name)) {
+        let lastSessionId = null;
+        try { lastSessionId = window.localStorage.getItem(LAST_SESSION_KEY); }
+        catch { /* Storage may be disabled; the competition picker still works. */ }
+        const lastSession = state.sessions.find(session => session.id === lastSessionId);
+        const session = lastSession || state.sessions[0] || null;
+        if (session) {
+          window.KarambellRouter.navigate(route.name, { sessionId: session.id }, { replace: true });
+          return;
+        }
+      }
       state.activeSessionId = null;
       state.listRouteName = route.name;
       showView("sessions");
@@ -362,6 +374,8 @@
       if (requestId !== state.routeRequest || window.KarambellRouter.resolve().sessionId !== id) return;
       if (!session || session.id !== id) throw new Error("Kompetisi tidak ditemukan.");
       saveSessionInState(session);
+      try { window.localStorage.setItem(LAST_SESSION_KEY, id); }
+      catch { /* Routing remains functional when storage is unavailable. */ }
     } catch (error) {
       if (requestId !== state.routeRequest || window.KarambellRouter.resolve().sessionId !== id) return;
       state.activeSessionId = null;

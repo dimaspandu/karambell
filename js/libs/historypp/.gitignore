@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+bun.lock
+yarn.lock
+
+# Build output
+dist/
+build/
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# AI agent / assistant tooling
+.kilo/
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.continue/
+.aider*
+.opencode/
+.roo/
+.gemini/
+.windsurf/

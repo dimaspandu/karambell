@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lazy Loading</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f5f5f5; }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header { padding: 16px; border-bottom: 1px solid #ddd; }
+
+    #view { flex: 1; padding: 20px; }
+
+    nav {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: white;
+      cursor: pointer;
+    }
+
+    .loading {
+      color: #888;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <header><h3>Lazy Loading</h3></header>
+  <div id="view"></div>
+
+  <nav>
+    <button data-link="/">Home</button>
+    <button data-link="/users">Users</button>
+    <button data-link="/posts">Posts</button>
+  </nav>
+</div>
+
+<script type="module" src="/src/index.js"></script>
+<script type="module">
+  const view = document.getElementById("view");
+
+  history.config({
+    base: "/examples/11-lazy-loading"
+  });
+
+  document.querySelectorAll("nav button").forEach(btn => {
+    btn.onclick = () => {
+      history.navigatePush(btn.dataset.link);
+    };
+  });
+
+  function loading() {
+    view.innerHTML = `<p class="loading">Loading...</p>`;
+  }
+
+  // HOME
+  history.router("/", {
+    onMeet() {
+      view.innerHTML = "<h2>Home</h2><p>Simple route.</p>";
+    }
+  });
+
+  // USERS (lazy)
+  history.router("/users", {
+    async onMeet() {
+      loading();
+
+      const module = await import("./users.js");
+
+      const data = await module.getUsers();
+
+      view.innerHTML = `
+        <h2>Users</h2>
+        <ul>${data.map(u => `<li>${u}</li>`).join("")}</ul>
+      `;
+    }
+  });
+
+  // POSTS (lazy)
+  history.router("/posts", {
+    async onMeet() {
+      loading();
+
+      const module = await import("./posts.js");
+
+      const data = await module.getPosts();
+
+      view.innerHTML = `
+        <h2>Posts</h2>
+        <ul>${data.map(p => `<li>${p}</li>`).join("")}</ul>
+      `;
+    }
+  });
+
+  history.navigateReplace(location.pathname);
+</script>
+</body>
+</html>

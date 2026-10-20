@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dynamic Params</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f5f5f5;
+    }
+
+    /* ==============================
+       APP CONTAINER
+    ============================== */
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+
+      background: white;
+      border-left: 1px solid #ddd;
+      border-right: 1px solid #ddd;
+    }
+
+    @media (max-width: 480px) {
+      .app {
+        border: none;
+      }
+    }
+
+    /* ==============================
+       HEADER
+    ============================== */
+
+    header {
+      padding: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    /* ==============================
+       CONTENT
+    ============================== */
+
+    #view {
+      flex: 1;
+      padding: 20px;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    p {
+      color: #555;
+    }
+
+    button {
+      padding: 10px 14px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    /* ==============================
+       NAV
+    ============================== */
+
+    nav {
+      display: flex;
+      border-top: 1px solid #ddd;
+      background: white;
+    }
+
+    nav a {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      text-decoration: none;
+      color: #333;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    nav a.active {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <header>
+      <h1>Dynamic Params</h1>
+    </header>
+
+    <div id="view"></div>
+
+    <nav>
+      <a href="/user/1" data-link>User 1</a>
+      <a href="/user/2" data-link>User 2</a>
+      <a href="/user/42" data-link>User 42</a>
+    </nav>
+  </div>
+
+  <script type="module" src="/src/index.js"></script>
+  <script type="module">
+    const view = document.getElementById("view");
+
+    // ==============================
+    // CONFIG
+    // ==============================
+
+    history.config({
+      base: "/examples/02-dynamic-params",
+      mode: "history"
+    });
+
+    // ==============================
+    // LINK INTERCEPTION
+    // ==============================
+
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest("[data-link]");
+      if (!a) return;
+
+      const url = new URL(a.href);
+      if (url.origin !== location.origin) return;
+
+      e.preventDefault();
+      history.navigatePush(url.pathname + url.search);
+    });
+
+    // ==============================
+    // UI HELPERS
+    // ==============================
+
+    function setActiveUser(id) {
+      document.querySelectorAll("nav a").forEach(a => {
+        const match = a.getAttribute("href") === `/user/${id}`;
+        a.classList.toggle("active", match);
+      });
+    }
+
+    function clearActive() {
+      document.querySelectorAll("nav a").forEach(a => {
+        a.classList.remove("active");
+      });
+    }
+
+    // ==============================
+    // ROUTES
+    // ==============================
+
+    history.router("/user/:id", {
+      onMeet(ctx) {
+        const { id } = ctx.params;
+
+        setActiveUser(id);
+
+        view.innerHTML = `
+          <h2>User ${id}</h2>
+          <p>This page is rendered using a dynamic route.</p>
+
+          <button id="next">Next user</button>
+        `;
+
+        document.getElementById("next").onclick = () => {
+          const nextId = Number(id) + 1;
+          history.navigatePush(`/user/${nextId}`);
+        };
+      }
+    });
+
+    history.router("/", {
+      onMeet() {
+        clearActive();
+
+        view.innerHTML = `
+          <h2>Welcome</h2>
+          <p>Select a user from the navigation below.</p>
+        `;
+      }
+    });
+
+    // ==============================
+    // INITIAL SYNC
+    // ==============================
+
+    history.navigateReplace(location.pathname + location.search);
+  </script>
+</body>
+</html>

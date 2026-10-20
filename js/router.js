@@ -9,7 +9,9 @@
     bracket: { path: "/bracket", tab: "bracket", requiresSession: false },
     matches: { path: "/matches", tab: "matches", requiresSession: false }
   });
+  const historyRouter = window.historypp;
   let routeHandler = null;
+  let registered = false;
 
   function safeDecode(segment) {
     try { return decodeURIComponent(segment); }
@@ -67,38 +69,67 @@
     return url;
   }
 
+  function currentURL() {
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  }
+
+  function dispatchCurrentRoute() {
+    const route = resolve();
+    if (route.legacy) {
+      const url = buildURL(route.name, { sessionId: route.sessionId });
+      historyRouter.navigateReplace(`${url.pathname}${url.search}${url.hash}`, { karambell: true });
+      return;
+    }
+    if (route.error) {
+      if (routeHandler) routeHandler(route);
+      historyRouter.navigateReplace("/competitions", { karambell: true });
+      return;
+    }
+    if (routeHandler) routeHandler(route);
+  }
+
+  function registerRoutes() {
+    if (registered) return;
+    registered = true;
+
+    for (const path of [
+      "/",
+      "/competitions",
+      "/competitions/:sessionId",
+      "/participants",
+      "/participants/:sessionId",
+      "/bracket",
+      "/bracket/:sessionId",
+      "/matches",
+      "/matches/:sessionId"
+    ]) {
+      historyRouter.router(path, { onMeet: dispatchCurrentRoute });
+    }
+
+    historyRouter.notFound(() => {
+      const route = invalid(`Rute "${window.location.pathname}" tidak dikenal.`);
+      if (routeHandler) routeHandler(route);
+      historyRouter.navigateReplace("/competitions", { karambell: true });
+    });
+  }
+
   function navigate(name, params = {}, { replace = false } = {}) {
     const url = buildURL(name, params);
     const current = new URL(window.location.href);
     const currentRoute = resolve(current);
     const targetName = name === "competition-detail" && !params.sessionId ? "competitions" : name;
     if (currentRoute.name === targetName && currentRoute.sessionId === (params.sessionId || null)) return false;
-    if (url.href === current.href) return false;
+    if (`${url.pathname}${url.search}${url.hash}` === currentURL()) return false;
 
-    const method = replace ? "replaceState" : "pushState";
-    window.history[method]({ ...window.history.state, karambell: true }, "", url);
-    dispatch(resolve(url));
+    const method = replace ? "navigateReplace" : "navigatePush";
+    historyRouter[method](`${url.pathname}${url.search}${url.hash}`, { karambell: true });
     return true;
-  }
-
-  function normalizeAndDispatch() {
-    const route = resolve();
-    if (route.error || route.legacy) {
-      const url = buildURL(route.name, { sessionId: route.sessionId });
-      window.history.replaceState({ ...window.history.state, karambell: true }, "", url);
-    }
-    dispatch(route);
-  }
-
-  function dispatch(route) {
-    if (routeHandler) routeHandler(route);
   }
 
   function start(handler) {
     routeHandler = handler;
-    window.removeEventListener("popstate", normalizeAndDispatch);
-    window.addEventListener("popstate", normalizeAndDispatch);
-    normalizeAndDispatch();
+    registerRoutes();
+    historyRouter.navigateReplace(currentURL(), { karambell: true });
   }
 
   window.KarambellRouter = Object.freeze({ routes, resolve, navigate, start });

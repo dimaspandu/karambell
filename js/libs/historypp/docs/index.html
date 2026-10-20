@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>History++ Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Documentation for History++, a lightweight SPA navigation engine built on top of the native History API." />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../assets/favicon.svg"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #efefef;
+      color: #272727;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      font-size: 18px;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hero {
+      background:
+        radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.06), transparent 30%),
+        linear-gradient(135deg, #111111, #1d1d1d);
+      color: white;
+    }
+
+    .wrap {
+      width: min(860px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .hero .wrap {
+      padding: 82px 0 92px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 13px;
+      border-radius: 999px;
+      background: #3c3c3c;
+      color: #eeeeee;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 14px 0 18px;
+      font-size: clamp(56px, 10vw, 88px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 680px;
+      margin: 0 0 28px;
+      color: #d7d7d7;
+      font-size: 21px;
+      line-height: 1.65;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .btn.primary {
+      background: white;
+      color: #181818;
+      border-color: white;
+    }
+
+    main {
+      padding: 64px 0 100px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      min-height: 180px;
+      padding: 26px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.08);
+      text-decoration: none;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .card p {
+      margin: 0;
+      color: #777777;
+      font-size: 17px;
+      line-height: 1.65;
+    }
+
+    footer {
+      padding: 0 0 72px;
+      color: #8a8a8a;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    @media (max-width: 720px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <span class="pill">History++ Documentation</span>
+      <h1>Docs for browser-native routing.</h1>
+      <p>
+        Learn how History++ coordinates navigation lifecycle, route matching, middleware, guards, and local deployment behavior.
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="/docs/architecture/">Architecture Docs</a>
+        <a class="btn" href="/examples/">Explore Examples</a>
+        <a class="btn" href="https://github.com/dimaspandu/historypp">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <a class="card" href="/docs/architecture/">
+        <h2>Architecture</h2>
+        <p>
+          Visual documentation for route lifecycle, navigation flow, guards, middleware, and architecture diagrams.
+        </p>
+      </a>
+
+      <a class="card" href="/examples/">
+        <h2>Examples</h2>
+        <p>
+          Runnable demos covering dynamic params, lifecycle hooks, blocking guards, middleware, hybrid navigation, and performance.
+        </p>
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    History++ Docs
+  </footer>
+</body>
+</html>

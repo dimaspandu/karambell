@@ -36,13 +36,13 @@ Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di 
 Untuk menguji function Netlify secara lokal, gunakan Netlify CLI (`netlify dev`); Live Server tidak menjalankan Netlify Functions.
 
 ## URL aplikasi
-Router client-side didefinisikan di `js/router.js`. Refresh pada path ini akan mengirim `index.html`, lalu router memilih tampilan berdasarkan path:
+Router client-side didefinisikan di `js/router.js` dengan engine HistoryPP lokal (`js/libs/historypp/src/1.0.5`). Refresh pada path ini akan mengirim `index.html`, lalu router memilih tampilan berdasarkan path:
 
 - `/` atau `/competitions` — Dashboard dan daftar kompetisi.
 - `/competitions/<session-id>` — Detail kompetisi, membuka bracket.
-- `/bracket` — Daftar kompetisi untuk dipilih; `/bracket/<session-id>` membuka bracket kompetisi.
-- `/participants` — Daftar kompetisi untuk dipilih; `/participants/<session-id>` membuka peserta kompetisi.
-- `/matches` — Daftar kompetisi untuk dipilih; `/matches/<session-id>` membuka daftar pertandingan.
+- `/bracket` — Membuka kompetisi terakhir yang dipilih, atau kompetisi pertama jika belum ada pilihan. `/bracket/<session-id>` membuka bracket kompetisi tersebut.
+- `/participants` — Mengikuti aturan pemilihan yang sama; `/participants/<session-id>` membuka peserta kompetisi tersebut.
+- `/matches` — Mengikuti aturan pemilihan yang sama; `/matches/<session-id>` membuka daftar pertandingan kompetisi tersebut.
 
 Path lama `/?session_id=<id>` tetap diarahkan ke `/bracket/<id>`.
 

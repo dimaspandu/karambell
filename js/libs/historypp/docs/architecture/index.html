@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>History++ Architecture</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Architecture documentation for History++, including routing flow, lifecycle hooks, middleware, matchers, guards, and deployment behavior." />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    :root {
+      --bg: #efefef;
+      --panel: #ffffff;
+      --dark: #171717;
+      --text: #272727;
+      --muted: #777777;
+      --line: #e5e5e5;
+      --chip: #3c3c3c;
+      --shadow: 0 18px 42px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 18px;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hero {
+      background:
+        radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.06), transparent 30%),
+        linear-gradient(135deg, #111111, #1d1d1d);
+      color: white;
+    }
+
+    .wrap {
+      width: min(980px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .hero .wrap {
+      padding: 92px 0 96px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: #eeeeee;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 860px;
+      margin-bottom: 18px;
+      font-size: clamp(64px, 10vw, 108px);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin-bottom: 30px;
+      color: #d7d7d7;
+      font-size: 23px;
+      line-height: 1.6;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+      padding: 0 20px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      color: white;
+      font-size: 17px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .btn.primary {
+      background: white;
+      color: #181818;
+      border-color: white;
+    }
+
+    main {
+      padding: 76px 0 112px;
+    }
+
+    section {
+      margin-bottom: 72px;
+    }
+
+    .vision {
+      padding: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin-bottom: 22px;
+      font-size: clamp(36px, 4vw, 50px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .vision p,
+    .intro {
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    ul {
+      margin: 24px 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+    }
+
+    .diagram {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .diagram img {
+      display: block;
+      width: 100%;
+      height: 260px;
+      object-fit: contain;
+      padding: 18px;
+      background: #fbfbfb;
+      border-bottom: 1px solid var(--line);
+      cursor: zoom-in;
+    }
+
+    .diagram button {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+    }
+
+    .diagram button:focus-visible {
+      outline: 4px solid #111111;
+      outline-offset: -4px;
+    }
+
+    .diagram-body {
+      padding: 28px;
+    }
+
+    .diagram h3 {
+      margin-bottom: 12px;
+      font-size: 29px;
+      line-height: 1.2;
+    }
+
+    .diagram p {
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: #eeeeee;
+      color: #777777;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    footer {
+      padding: 0 0 72px;
+      color: #8a8a8a;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    footer code {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e9e9e9;
+      color: #777;
+      font-size: 15px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(0, 0, 0, 0.86);
+    }
+
+    .modal.is-open {
+      display: flex;
+    }
+
+    .modal-panel {
+      position: relative;
+      display: grid;
+      width: min(1200px, 100%);
+      max-height: calc(100vh - 56px);
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+    }
+
+    .modal-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.3;
+    }
+
+    .modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f3f3f3;
+      color: #222222;
+      cursor: pointer;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .modal-image-wrap {
+      min-height: 0;
+      overflow: auto;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+
+    .modal-image {
+      display: block;
+      width: 100%;
+      max-height: calc(100vh - 156px);
+      object-fit: contain;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .diagram-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .hero .wrap {
+        padding: 64px 0 74px;
+      }
+
+      h1 {
+        font-size: clamp(52px, 14vw, 78px);
+      }
+
+      .hero p {
+        font-size: 19px;
+      }
+
+      main {
+        padding-top: 52px;
+      }
+
+      .diagram-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .modal {
+        padding: 12px;
+      }
+
+      .modal-panel {
+        max-height: calc(100vh - 24px);
+      }
+
+      .modal-title {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <span class="pill">History++ Architecture Docs</span>
+      <h1>Runtime Architecture</h1>
+      <p>
+        Visual documentation describing how History++ performs route matching, lifecycle orchestration, guarded navigation, middleware execution, and browser-native URL updates.
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="/">Back to Home</a>
+        <a class="btn" href="/examples/">Explore Examples</a>
+        <a class="btn" href="https://github.com/dimaspandu/historypp">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="vision">
+      <h2>History++ Vision</h2>
+      <p>
+        History++ explores the idea that browser-native navigation APIs are expressive enough to support structured routing without taking over rendering.
+      </p>
+
+      <ul>
+        <li>direct URL-driven UI state</li>
+        <li>native back and forward behavior</li>
+        <li>route lifecycle hooks</li>
+        <li>guarded transitions</li>
+        <li>middleware and route matching</li>
+      </ul>
+
+      <p>
+        Instead of replacing the browser, History++ extends it with a small orchestration layer that lets applications decide how rendering should happen.
+      </p>
+    </section>
+
+    <section>
+      <h2>Architecture Diagrams</h2>
+      <p class="intro">
+        These diagrams explain the internal mental model, navigation flow, and architectural positioning of History++.
+      </p>
+
+      <div class="diagram-grid">
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Runtime Overview diagram">
+            <img src="../../assets/featured-image.png" alt="History++ route overview diagram" />
+          </button>
+          <div class="diagram-body">
+            <h3>Runtime Overview</h3>
+            <p>High-level overview of native history, route matching, guards, and lifecycle hooks.</p>
+            <div class="tags">
+              <span class="tag">routing</span>
+              <span class="tag">lifecycle</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Push and Replace diagram">
+            <img src="./push_replace-navigation-activity-diagram.png" alt="Push and replace navigation activity diagram" />
+          </button>
+          <div class="diagram-body">
+            <h3>Push and Replace</h3>
+            <p>Shows how programmatic navigation creates context, runs middleware, and enters routes.</p>
+            <div class="tags">
+              <span class="tag">push</span>
+              <span class="tag">replace</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Entry Sequence diagram">
+            <img src="./push_replace-navigation-sequence-diagram.png" alt="Push and replace navigation sequence diagram" />
+          </button>
+          <div class="diagram-body">
+            <h3>Entry Sequence</h3>
+            <p>Details the call order for browser history writes and route lifecycle execution.</p>
+            <div class="tags">
+              <span class="tag">sequence</span>
+              <span class="tag">hooks</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Back Navigation diagram">
+            <img src="./back-navigation-activity-diagram.png" alt="Back navigation activity diagram" />
+          </button>
+          <div class="diagram-body">
+            <h3>Back Navigation</h3>
+            <p>Explains how popstate movement triggers return hooks and URL restoration when blocked.</p>
+            <div class="tags">
+              <span class="tag">popstate</span>
+              <span class="tag">guards</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Return Sequence diagram">
+            <img src="./back-navigation-sequence-diagram.png" alt="Back navigation sequence diagram" />
+          </button>
+          <div class="diagram-body">
+            <h3>Return Sequence</h3>
+            <p>Shows how onReturn, onExit, onComeback, and onMeet describe back and forward movement.</p>
+            <div class="tags">
+              <span class="tag">return</span>
+              <span class="tag">comeback</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="diagram">
+          <button type="button" class="diagram-preview" aria-label="Preview Router Positioning diagram">
+            <img src="../../assets/featured-image.png" alt="History++ architecture positioning visual" />
+          </button>
+          <div class="diagram-body">
+            <h3>Router Positioning</h3>
+            <p>History++ stays between browser history and application rendering, coordinating behavior only.</p>
+            <div class="tags">
+              <span class="tag">browser APIs</span>
+              <span class="tag">UI agnostic</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    History++ Architecture Documentation
+    <br />
+    <code>Native browser navigation, structured route lifecycle.</code>
+  </footer>
+
+  <div class="modal" id="diagram-modal" role="dialog" aria-modal="true" aria-labelledby="diagram-modal-title">
+    <div class="modal-panel">
+      <div class="modal-bar">
+        <p class="modal-title" id="diagram-modal-title">Diagram Preview</p>
+        <button class="modal-close" type="button" aria-label="Close diagram preview">&times;</button>
+      </div>
+      <div class="modal-image-wrap">
+        <img class="modal-image" src="" alt="" />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.querySelector("#diagram-modal");
+    const modalImage = modal.querySelector(".modal-image");
+    const modalTitle = modal.querySelector(".modal-title");
+    const closeButton = modal.querySelector(".modal-close");
+    const previews = document.querySelectorAll(".diagram-preview");
+    let activePreview = null;
+
+    function openModal(button) {
+      const image = button.querySelector("img");
+      const title = button.closest(".diagram").querySelector("h3").textContent;
+
+      activePreview = button;
+      modalImage.src = image.currentSrc || image.src;
+      modalImage.alt = image.alt;
+      modalTitle.textContent = title;
+      modal.classList.add("is-open");
+      document.body.style.overflow = "hidden";
+      closeButton.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove("is-open");
+      modalImage.src = "";
+      document.body.style.overflow = "";
+
+      if (activePreview) {
+        activePreview.focus();
+      }
+    }
+
+    previews.forEach((button) => {
+      button.addEventListener("click", () => openModal(button));
+    });
+
+    closeButton.addEventListener("click", closeModal);
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal.classList.contains("is-open")) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

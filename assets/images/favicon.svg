@@ -1,0 +1,32 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#F7F5EB"/>
+
+  <!-- Crown -->
+  <path
+    d="M15 18 L23 25 L32 13 L41 25 L49 18 L45 37 L19 37 Z"
+    fill="#E9A817"
+    stroke="#173D35"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Crown tips -->
+  <circle cx="15" cy="17" r="3.5" fill="#E9A817" stroke="#173D35" stroke-width="1.5"/>
+  <circle cx="32" cy="12" r="3.5" fill="#E9A817" stroke="#173D35" stroke-width="1.5"/>
+  <circle cx="49" cy="17" r="3.5" fill="#E9A817" stroke="#173D35" stroke-width="1.5"/>
+
+  <!-- Carrom coin -->
+  <circle cx="32" cy="38" r="15" fill="#E9A817" stroke="#173D35" stroke-width="3"/>
+  <circle cx="32" cy="38" r="10.5" fill="#FFD979"/>
+  <ellipse cx="28" cy="33" rx="4" ry="2.5" fill="#FFF2C5" transform="rotate(-35 28 33)"/>
+
+  <!-- Base -->
+  <path
+    d="M20 55 Q32 59 44 55"
+    fill="none"
+    stroke="#173D35"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+</svg>

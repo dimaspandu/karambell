@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Route Performance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f5f5f5;
+    }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: white;
+      padding: 20px;
+    }
+
+    button {
+      padding: 10px 14px;
+      margin-right: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+      font-size: 14px;
+    }
+
+    .highlight {
+      color: #2e7d32;
+      font-weight: bold;
+    }
+
+    .note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <h2>Route Matcher Performance</h2>
+
+  <p>
+    Compare routing performance between:
+  </p>
+
+  <ul>
+    <li><b>Simple matcher</b> (cache + regex)</li>
+    <li><b>Trie matcher</b> (tree traversal)</li>
+  </ul>
+
+  <button id="simple">Run Simple Matcher</button>
+  <button id="trie">Run Trie Matcher</button>
+
+  <div class="result" id="output"></div>
+
+  <div class="note">
+    Test runs 3000 navigations on dynamic routes.
+  </div>
+</div>
+
+<script type="module" src="/src/index.js"></script>
+<script type="module">
+  const output = document.getElementById("output");
+
+  // ==============================
+  // ROUTE GENERATION
+  // ==============================
+
+  function generateRoutes() {
+    // static routes
+    for (let i = 0; i < 1000; i++) {
+      history.router(`/page-${i}`, () => {});
+    }
+
+    // dynamic route
+    history.router("/product/:id", () => {});
+  }
+
+  // ==============================
+  // BENCHMARK
+  // ==============================
+
+  function runBenchmark(label) {
+    const start = performance.now();
+
+    for (let i = 0; i < 3000; i++) {
+      history.navigatePush(`/product/${i % 100}`);
+    }
+
+    const end = performance.now();
+
+    return `${label}: ${(end - start).toFixed(2)} ms`;
+  }
+
+  // ==============================
+  // RESET (clean state)
+  // ==============================
+
+  function resetApp(matcher) {
+    location.reload();
+
+    // NOTE:
+    // reload ensures routes & cache are reset
+  }
+
+  // ==============================
+  // SIMPLE MATCHER
+  // ==============================
+
+  document.getElementById("simple").onclick = () => {
+    history.config({
+      base: "/examples/14-route-performance",
+      matcher: "simple"
+    });
+
+    generateRoutes();
+
+    const result = runBenchmark("Simple matcher");
+
+    output.innerHTML = `
+      <div>${result}</div>
+      <div class="highlight">Uses cache + regex matching</div>
+    `;
+  };
+
+  // ==============================
+  // TRIE MATCHER
+  // ==============================
+
+  document.getElementById("trie").onclick = () => {
+    history.config({
+      base: "/examples/14-route-performance",
+      matcher: "trie"
+    });
+
+    generateRoutes();
+
+    const result = runBenchmark("Trie matcher");
+
+    output.innerHTML = `
+      <div>${result}</div>
+      <div class="highlight">Uses tree traversal (no loop per route)</div>
+    `;
+  };
+
+  // ==============================
+  // INITIAL
+  // ==============================
+
+  history.navigateReplace("/");
+</script>
+
+</body>
+</html>

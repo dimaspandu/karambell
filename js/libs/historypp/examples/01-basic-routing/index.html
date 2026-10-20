@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Basic Routing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="../../assets/favicon.svg"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f5f5f5;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: white;
+      border-left: 1px solid #ddd;
+      border-right: 1px solid #ddd;
+    }
+
+    @media (max-width: 480px) {
+      .app { border: none; }
+    }
+
+    header {
+      padding: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    #view {
+      flex: 1;
+      padding: 20px;
+    }
+
+    nav {
+      display: flex;
+      border-top: 1px solid #ddd;
+      background: white;
+    }
+
+    nav a {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      text-decoration: none;
+      color: #333;
+      cursor: pointer;
+    }
+
+    nav a.active {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Basic Routing</h1>
+  </header>
+
+  <div id="view"></div>
+
+  <nav>
+    <a href="/" data-link>Home</a>
+    <a href="/about" data-link>About</a>
+    <a href="/about/contact" data-link>Contact</a>
+    <a href="/somewhere" data-link>Somewhere</a>
+  </nav>
+</div>
+
+<script type="module" src="/src/index.js"></script>
+<script type="module">
+  const view = document.getElementById("view");
+
+  history.config({
+    base: "/examples/01-basic-routing",
+    mode: "history"
+  });
+
+  // normalize path (remove trailing slash except root)
+  function normalize(path) {
+    if (path !== "/" && path.endsWith("/")) {
+      return path.slice(0, -1);
+    }
+    return path;
+  }
+
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-link]");
+    if (!a) return;
+
+    const url = new URL(a.href);
+    if (url.origin !== location.origin) return;
+
+    e.preventDefault();
+
+    const path = normalize(url.pathname);
+    history.navigatePush(path);
+  });
+
+  function setActive(path) {
+    document.querySelectorAll("nav a").forEach(a => {
+      const href = normalize(a.getAttribute("href"));
+      a.classList.toggle("active", href === path);
+    });
+  }
+
+  history.router("/", {
+    onMeet() {
+      setActive("/");
+      view.innerHTML = `
+        <h2>Home</h2>
+        <p>Welcome home</p>
+      `;
+    }
+  });
+
+  history.router("/about", {
+    onMeet() {
+      setActive("/about");
+      view.innerHTML = `
+        <h2>About</h2>
+        <p>This is a simple routing example.</p>
+      `;
+    }
+  });
+
+  history.router("/about/contact", {
+    onMeet() {
+      setActive("/about/contact");
+      view.innerHTML = `
+        <h2>Contact</h2>
+        <p>This is a nested route.</p>
+      `;
+    }
+  });
+
+  history.notFound((ctx) => {
+    setActive(null);
+    view.innerHTML = `
+      <h2>404</h2>
+      <p>Route <b>${ctx.path}</b> not found.</p>
+    `;
+  });
+
+  // normalize initial load (fix /about/)
+  const initialPath = normalize(location.pathname);
+  history.navigateReplace(initialPath + location.search);
+</script>
+
+</body>
+</html>

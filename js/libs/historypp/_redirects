@@ -1,0 +1,21 @@
+/examples/01-basic-routing/*  /examples/01-basic-routing/index.html  200
+/examples/02-dynamic-params/*  /examples/02-dynamic-params/index.html  200
+/examples/03-lifecycle-visualizer/*  /examples/03-lifecycle-visualizer/index.html  200
+/examples/04-guards-blocking/*  /examples/04-guards-blocking/index.html  200
+/examples/05-hash-vs-history/*  /examples/05-hash-vs-history/index.html  200
+/examples/06-end-route/*  /examples/06-end-route/index.html  200
+/examples/07-modal-route/*  /examples/07-modal-route/index.html  200
+/examples/08-bottom-sheet/*  /examples/08-bottom-sheet/index.html  200
+/examples/09-multi-step-flow/*  /examples/09-multi-step-flow/index.html  200
+/examples/10-middleware/*  /examples/10-middleware/index.html  200
+/examples/11-lazy-loading/*  /examples/11-lazy-loading/index.html  200
+/examples/12-html-fetch-navigation/*  /examples/12-html-fetch-navigation/index.html  200
+/examples/13-html-hybrid-navigation/*  /examples/13-html-hybrid-navigation/index.html  200
+/examples/14-route-performance/*  /examples/14-route-performance/index.html  200
+
+/examples/*  /examples/index.html  200
+/docs/architecture  /docs/architecture/index.html  200
+/docs/architecture/*  /docs/architecture/index.html  200
+/docs  /docs/index.html  200
+/docs/*  /docs/index.html  200
+/*    /index.html   200

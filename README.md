@@ -35,6 +35,17 @@ Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di 
 
 Untuk menguji function Netlify secara lokal, gunakan Netlify CLI (`netlify dev`); Live Server tidak menjalankan Netlify Functions.
 
+## Data provider
+Pemilihan provider terpusat di `js/data/config.js` melalui `dataProvider`. Default tetap `google-sheets`; ubah ke `supabase` untuk memakai Supabase PostgreSQL Data API. Isi `supabaseUrl` dan `supabaseAnonKey` pada file yang sama dengan project URL dan publishable/anon key. Key tersebut memang dapat dilihat browser; jangan pernah memasukkan service-role/secret key.
+
+`js/data/service.js` adalah antarmuka repository yang dipakai UI: `listCompetitions`, `getCompetition`, `createCompetition`, `addPlayer`, `recordScore`, dan `recordWinner`. Kedua provider mengembalikan bentuk payload kompetisi yang sama sebelum dinormalisasi oleh aplikasi. Google Sheets tetap memakai proxy dan action Apps Script `listSessions`, `getSession`, `createSession`, `addParticipant`, serta `updateMatchScore`; skornya tetap numerik. Supabase memetakan `sessions`, `players`, `teams`, `team_members`, dan `matches` ke model yang sama: tim menjadi competitor ber-ID team, anggota digabung sebagai nama `Pemain A & Pemain B`, dan `winner_team_id` menjadi winner ID.
+
+Implementasi Supabase mengasumsikan kolom standar berikut tersedia: `sessions.id/name/event_date/location/format/status`; `players.id/session_id/name/seed`; `teams.id/session_id/name/seed`; `team_members.team_id/player_id/position`; `matches.id/session_id/round/match_number/team1_id/team2_id/winner_team_id/status/next_match_id/next_slot`. Nama/struktur kolom aktual belum dapat diverifikasi dari repository ini, jadi sesuaikan mapping bila skema project berbeda. Bye disimpan dengan status `completed` dan winner, lalu dipetakan menjadi status UI `bye`. Tidak ada SQL/schema otomatis yang dijalankan. RLS harus mengizinkan operasi SELECT/INSERT/UPDATE yang diperlukan untuk kelima tabel; kebijakan anon write terbuka berarti siapa pun yang dapat mengakses aplikasi/API dapat mengubah data. Hindari perubahan policy otomatis dari frontend.
+
+Limitasi: mode Supabase saat ini membuat kompetisi tim dan mendukung hasil/progres bracket, serta tambah pemain individual. Google Sheets tetap satu-satunya provider yang diketahui mendukung kompetisi individual lama secara lengkap; mapping Google tidak menganggap ID peserta individual sebagai ID tim. Untuk mencocokkan Supabase dengan skema deployment sebenarnya, verifikasi nama kolom, foreign key, nilai status, dan RLS sebelum memilih provider tersebut.
+
+Checklist manual: (1) dengan `google-sheets`, muat sesi lama, buat sesi tim, pilih dan koreksi pemenang sampai final, lalu tambah pemain pada sesi individual; (2) isi URL/anon key dan pilih `supabase`, buat kompetisi tim dengan minimal empat pemain, muat ulang, periksa anggota dan bracket, catat/koreksi pemenang dan pastikan juara tampil; (3) coba key/RLS salah dan pastikan pesan error tampil tanpa beralih provider.
+
 ## URL aplikasi
 Router client-side didefinisikan di `js/router.js` dengan engine HistoryPP lokal (`js/libs/historypp/src/1.0.5`). Refresh pada path ini akan mengirim `index.html`, lalu router memilih tampilan berdasarkan path:
 

@@ -1,5 +1,9 @@
+import { dataService } from "./data/service.js";
+
 (() => {
   "use strict";
+
+  // The service owns provider selection; UI and tournament rendering stay provider agnostic.
 
   const state = {
     sessions: [],
@@ -40,20 +44,6 @@
     while (power < number) power *= 2;
     return power;
   };
-
-  async function apiRequest(path, options = {}) {
-    const response = await fetch(path, {
-      ...options,
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) }
-    });
-    let payload;
-    try { payload = await response.json(); }
-    catch { throw new Error(`Respons server tidak valid (HTTP ${response.status}).`); }
-    if (!response.ok || payload.ok === false) {
-      throw new Error(payload.error || `Request gagal (HTTP ${response.status}).`);
-    }
-    return payload.data;
-  }
 
   function isLocallyKnownTeamSession(sessionId) {
     try {
@@ -117,7 +107,7 @@
   }
 
   async function fetchSession(sessionId) {
-    const payload = await apiRequest(`/api/session?session_id=${encodeURIComponent(sessionId)}`);
+    const payload = await dataService.getCompetition(sessionId);
     const session = normalizeSession(payload);
     loadedSessionIds.add(session.id);
     return session;
@@ -152,15 +142,7 @@
     state.loading = true;
     renderSessions();
     try {
-      const result = await apiRequest("/api/sessions");
-      const rows = Array.isArray(result.sessions) ? result.sessions : [];
-      const sessions = await Promise.all(rows.map(async row => {
-        try { return await fetchSession(row.session_id); }
-        catch (error) {
-          console.error(`Failed to load session ${row.session_id}:`, error);
-          return normalizeSession({ session: row, participants: [], matches: [] });
-        }
-      }));
+      const sessions = (await dataService.listCompetitions()).map(normalizeSession);
       state.sessions = sessions;
       renderSessions();
       if (state.activeSessionId) {
@@ -169,7 +151,7 @@
       }
     } catch (error) {
       renderSessions();
-      showToast(`Gagal memuat Google Sheets: ${error.message}`);
+      showToast(`Gagal memuat kompetisi: ${error.message}`);
     } finally {
       state.loading = false;
       renderSessions();
@@ -661,10 +643,7 @@
     const score1 = winnerId === match.participant1Id ? 1 : 0;
     const score2 = winnerId === match.participant2Id ? 1 : 0;
     try {
-      const result = await apiRequest("/api/matches/score", {
-        method: "POST",
-        body: JSON.stringify({ session_id: session.id, match_id: match.id, score1, score2 })
-      });
+      const result = await dataService.recordWinner({ session_id: session.id, match_id: match.id, score1, score2 });
       const updated = normalizeSession(result);
       updated.isTeamCompetition = true;
       updated.format = session.format;
@@ -693,15 +672,12 @@
     submitButton.disabled = true;
     submitButton.textContent = "Menyimpan…";
     try {
-      const result = await apiRequest("/api/sessions", {
-        method: "POST",
-        body: JSON.stringify({
+      const result = await dataService.createCompetition({
           name: String(formData.get("name") || "").trim(),
           event_date: String(formData.get("date") || ""),
           location: String(formData.get("location") || "").trim(),
           format: String(formData.get("format") || "team_single_elimination"),
           participants: teamNames
-        })
       });
       const session = normalizeSession(result);
       session.isTeamCompetition = true;
@@ -818,14 +794,11 @@
     submitButton.disabled = true;
     submitButton.textContent = "Menyimpan…";
     try {
-      const result = await apiRequest("/api/matches/score", {
-        method: "POST",
-        body: JSON.stringify({
+      const result = await dataService.recordScore({
           session_id: session.id,
           match_id: match.id,
           score1,
           score2
-        })
       });
       saveSessionInState(normalizeSession(result));
       renderDetails();
@@ -870,10 +843,7 @@
     submitButton.disabled = true;
     submitButton.textContent = "Menyimpan…";
     try {
-      const result = await apiRequest("/api/participants", {
-        method: "POST",
-        body: JSON.stringify({ session_id: session.id, name })
-      });
+      const result = await dataService.addPlayer({ session_id: session.id, name });
       saveSessionInState(normalizeSession(result));
       renderDetails();
       renderSessions();

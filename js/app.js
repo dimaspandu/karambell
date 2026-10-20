@@ -12,6 +12,9 @@
   };
   const loadedSessionIds = new Set();
   const LAST_SESSION_KEY = "karambell:last-session-id";
+  let bracketResizeObserver = null;
+  let bracketConnectorFrame = 0;
+  let bracketResizeFallbackBound = false;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -322,7 +325,7 @@
       </div>`;
     };
     const statusLabel = match.status === "completed" ? "Selesai" : match.status === "bye" ? "Bye" : canEdit ? "Belum dimainkan" : "Menunggu";
-    return `<article class="match-card ${canEdit ? "match-card--clickable" : ""}" ${canEdit ? `data-edit-match="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Update skor ${escapeHTML(match.id)}"` : ""}>
+    return `<article class="match-card ${canEdit ? "match-card--clickable" : ""}" data-bracket-round="${round}" data-bracket-index="${match.index}" ${canEdit ? `data-edit-match="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Update skor ${escapeHTML(match.id)}"` : ""}>
       <div class="match-card__head"><span>${escapeHTML(match.id)} · ${escapeHTML(matchRoundName(round, session.totalRounds))}</span><span>${statusLabel}</span></div>
       ${playerHTML(player1, match.score1, 1)}
       ${playerHTML(player2, match.score2, 2)}
@@ -347,6 +350,76 @@
     const champion = finalMatch?.winnerId ? getParticipant(session, finalMatch.winnerId) : null;
     const championColumn = `<section class="bracket__round bracket__round--champion"><h4 class="bracket__round-title">Juara</h4><div class="champion-card"><div class="champion-card__crown">♛</div><div class="champion-card__avatar">${champion ? escapeHTML(initials(champion.name)) : "?"}</div><strong>${champion ? escapeHTML(champion.name) : "Belum ada"}</strong><p>${champion ? "Juara kompetisi" : "Menunggu final"}</p></div></section>`;
     container.innerHTML = columns + championColumn;
+    observeBracketForConnectors(container);
+  }
+
+  function scheduleBracketConnectorUpdate() {
+    if (bracketConnectorFrame) cancelAnimationFrame(bracketConnectorFrame);
+    bracketConnectorFrame = requestAnimationFrame(() => {
+      bracketConnectorFrame = 0;
+      updateBracketConnectors();
+    });
+  }
+
+  function observeBracketForConnectors(container) {
+    if (window.ResizeObserver) {
+      if (!bracketResizeObserver) bracketResizeObserver = new ResizeObserver(scheduleBracketConnectorUpdate);
+      bracketResizeObserver.disconnect();
+      bracketResizeObserver.observe(container);
+      container.querySelectorAll(".match-card, .champion-card").forEach(card => bracketResizeObserver.observe(card));
+    } else if (!bracketResizeFallbackBound) {
+      window.addEventListener("resize", scheduleBracketConnectorUpdate, { passive: true });
+      bracketResizeFallbackBound = true;
+    }
+    scheduleBracketConnectorUpdate();
+  }
+
+  function updateBracketConnectors() {
+    const container = $("#bracket");
+    if (!container) return;
+    const rootRect = container.getBoundingClientRect();
+    const width = container.scrollWidth;
+    const height = container.scrollHeight;
+    if (!width || !height || !rootRect.width || !rootRect.height) return;
+
+    let svg = container.querySelector(".bracket__connectors");
+    if (!svg) {
+      svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.classList.add("bracket__connectors");
+      svg.setAttribute("aria-hidden", "true");
+      container.prepend(svg);
+    }
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    const cards = [...container.querySelectorAll(".match-card[data-bracket-round]")];
+    const byRoundAndIndex = new Map(cards.map(card => [`${card.dataset.bracketRound}:${card.dataset.bracketIndex}`, card]));
+    const finalRound = Math.max(0, ...cards.map(card => Number(card.dataset.bracketRound)));
+    const point = (element, side) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: (side === "right" ? rect.right : rect.left) - rootRect.left,
+        y: rect.top - rootRect.top + rect.height / 2
+      };
+    };
+    const paths = [];
+    cards.forEach(card => {
+      const round = Number(card.dataset.bracketRound);
+      const index = Number(card.dataset.bracketIndex);
+      const next = byRoundAndIndex.get(`${round + 1}:${Math.floor(index / 2)}`);
+      const championCard = round === finalRound
+        ? container.querySelector(".champion-card")
+        : null;
+      const target = next || championCard;
+      if (!target) return;
+
+      const start = point(card, "right");
+      const end = point(target, "left");
+      const middleX = start.x + (end.x - start.x) / 2;
+      paths.push(`<path d="M ${start.x} ${start.y} H ${middleX} V ${end.y} H ${end.x}"/>`);
+    });
+    svg.innerHTML = paths.join("");
   }
 
   function renderParticipants(session) {

@@ -2,6 +2,20 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.0.1] - 2026-10-21
+
+### Added
+
+- Global leaderboard for completed team tournaments, with normalized cross-tournament team identity and deterministic ranking.
+- Team detail, tournament history, and ordered match history views with bye-aware participation statistics.
+- Provider-independent leaderboard aggregation for Supabase and Google Sheets, with paginated Supabase session retrieval.
+- Tests for team identity normalization, aggregation, byes, ranking, and match history.
+
+### Changed
+
+- Updated the README with leaderboard behavior, routes, validation coverage, and known team identity limitations.
+- Clarified decorative sidebar icon markup for consistent accessible navigation.
+
 ## [1.0.0] - 2026-10-21
 
 ### Added

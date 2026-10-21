@@ -23,6 +23,11 @@ async function updateScore(input) {
 }
 
 export const googleSheetsProvider = {
+  async listLeaderboardCompetitions() {
+    const result = await request("/api/sessions");
+    const rows = Array.isArray(result.sessions) ? result.sessions : [];
+    return Promise.all(rows.map(row => getCompetition(row.session_id)));
+  },
   async listCompetitions() {
     const result = await request("/api/sessions");
     const rows = Array.isArray(result.sessions) ? result.sessions : [];

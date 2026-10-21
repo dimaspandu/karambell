@@ -4,12 +4,12 @@ export function createSupabaseProvider({ url, key }) {
   if (!url || !key) throw new Error("Provider Supabase dipilih, tetapi supabaseUrl atau supabaseAnonKey belum diatur di src/config/data.js.");
   const base = `${url.replace(/\/$/, "")}/rest/v1`;
 
-  async function query(table, params = {}, { method = "GET", body, prefer = "return=representation" } = {}) {
+  async function query(table, params = {}, { method = "GET", body, prefer = "return=representation", range } = {}) {
     const target = new URL(`${base}/${table}`);
     for (const [name, value] of Object.entries(params)) target.searchParams.set(name, String(value));
     const response = await fetch(target, {
       method,
-      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json", Prefer: prefer },
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json", Prefer: prefer, ...(range ? { Range: `${range[0]}-${range[1]}`, "Range-Unit": "items" } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
     const data = await response.json().catch(() => null);
@@ -23,6 +23,16 @@ export function createSupabaseProvider({ url, key }) {
   }
 
   const byId = id => `eq.${id}`;
+
+  async function listLeaderboardCompetitions() {
+    const sessions = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await query("sessions", { select: "id", order: "created_at.desc" }, { range: [offset, offset + 999] });
+      sessions.push(...page);
+      if (page.length < 1000) break;
+    }
+    return Promise.all(sessions.map(session => getCompetition(session.id)));
+  }
 
   async function getCompetition(id) {
     const [sessions, players, teams, matches] = await Promise.all([
@@ -137,9 +147,9 @@ export function createSupabaseProvider({ url, key }) {
   }
 
   return {
+    listLeaderboardCompetitions,
     async listCompetitions() {
-      const sessions = await query("sessions", { select: "id", order: "created_at.desc" });
-      return Promise.all(sessions.map(session => getCompetition(session.id)));
+      return listLeaderboardCompetitions();
     },
     getCompetition,
     async createCompetition(input) {

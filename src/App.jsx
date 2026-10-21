@@ -5,6 +5,8 @@ import { normalizeCompetition, formatDate, getParticipant, initials, matchRoundN
 import { CompetitionDetail } from "./components/CompetitionDetail.jsx";
 import { SessionList } from "./components/SessionList.jsx";
 import { CreateCompetitionDialog, ParticipantDialog, ScoreDialog, TeamWinnerDialog } from "./components/Dialogs.jsx";
+import { createLeaderboardData } from "./domain/leaderboard.js";
+import { Leaderboard } from "./components/Leaderboard.jsx";
 
 const LAST_SESSION_KEY = "karambell:last-session-id";
 const TEAM_PAIRING_DRAFT_KEY = "karambell:team-pairing-draft";
@@ -31,12 +33,28 @@ export default function App() {
   const [saving, setSaving] = useState(null);
   const [toast, setToast] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [leaderboardReload, setLeaderboardReload] = useState(0);
   const toastTimer = useRef(null);
   const hideTimer = useRef(null);
   const requestId = useRef(0);
   const loadedSessionIds = useRef(new Set());
 
   useEffect(() => { historyRouter.start(); }, []);
+
+  useEffect(() => {
+    if (!route.name.startsWith("leaderboard")) return;
+    let active = true;
+    setLeaderboardLoading(true);
+    dataService.listLeaderboardCompetitions().then(items => {
+      if (active) { setLeaderboard(createLeaderboardData(items)); setLeaderboardError(""); }
+    }).catch(error => {
+      if (active) { console.error("Failed to load leaderboard", error); setLeaderboard(null); setLeaderboardError(error.message || "Unable to retrieve complete tournament data."); }
+    }).finally(() => { if (active) setLeaderboardLoading(false); });
+    return () => { active = false; };
+  }, [route.name, leaderboardReload]);
 
   useEffect(() => {
     let active = true;
@@ -107,8 +125,9 @@ export default function App() {
   const scoreMatch = activeSession?.matches.find(match => match.id === scoreMatchId) || null;
   const winnerMatch = activeSession?.matches.find(match => match.id === winnerMatchId) || null;
   const listRoute = activeSession ? null : route.name;
-  const pageTitle = activeSession ? activeTab === "participants" ? "Peserta Kompetisi" : activeTab === "matches" ? "Daftar Pertandingan" : "Bagan Pertandingan" : routesWithSession.includes(listRoute) ? "Pilih Kompetisi" : "Sesi Kompetisi";
-  const activeNav = activeSession ? activeTab === "matches" ? "bracket" : activeTab : routesWithSession.includes(listRoute) ? listRoute === "matches" ? "bracket" : listRoute : "competitions";
+  const leaderboardPage = route.name.startsWith("leaderboard");
+  const pageTitle = leaderboardPage ? route.name === "leaderboard" ? "Global Leaderboard" : route.name === "leaderboard-team" ? "Team Detail" : "Tournament History" : activeSession ? activeTab === "participants" ? "Peserta Kompetisi" : activeTab === "matches" ? "Daftar Pertandingan" : "Bagan Pertandingan" : routesWithSession.includes(listRoute) ? "Pilih Kompetisi" : "Sesi Kompetisi";
+  const activeNav = leaderboardPage ? "leaderboard" : activeSession ? activeTab === "matches" ? "bracket" : activeTab : routesWithSession.includes(listRoute) ? listRoute === "matches" ? "bracket" : listRoute : "competitions";
 
   async function createCompetition(input) {
     setSaving("create");
@@ -218,21 +237,23 @@ export default function App() {
     <aside className="sidebar" aria-label="Navigasi utama">
       <a className="brand" href="/" onClick={event => { event.preventDefault(); navigate("home"); }} aria-label="Karambol Gamebell beranda"><span className="brand__icon" aria-hidden="true">●</span><span className="brand__text">Gamebell<span>Karambol Club</span></span></a>
       <nav className="nav">
-        <a className={`nav__item ${activeNav === "competitions" ? "nav__item--active" : ""}`} href="/competitions" onClick={event => { event.preventDefault(); navigate("competitions"); }}>▦ Sesi Kompetisi</a>
-        <a className={`nav__item ${activeNav === "participants" ? "nav__item--active" : ""}`} href={activeSession ? `/participants/${encodeURIComponent(activeSession.id)}` : "/participants"} onClick={event => { event.preventDefault(); navigate("participants", activeSession ? { sessionId: activeSession.id } : {}); }}>♟ Peserta</a>
-        <a className={`nav__item ${activeNav === "bracket" ? "nav__item--active" : ""}`} href={activeSession ? `/bracket/${encodeURIComponent(activeSession.id)}` : "/bracket"} onClick={event => { event.preventDefault(); navigate("bracket", activeSession ? { sessionId: activeSession.id } : {}); }}>⌘ Bagan Pertandingan</a>
+        <a className={`nav__item ${activeNav === "competitions" ? "nav__item--active" : ""}`} href="/competitions" onClick={event => { event.preventDefault(); navigate("competitions"); }}><span aria-hidden="true">▦</span> Sesi Kompetisi</a>
+        <a className={`nav__item ${activeNav === "participants" ? "nav__item--active" : ""}`} href={activeSession ? `/participants/${encodeURIComponent(activeSession.id)}` : "/participants"} onClick={event => { event.preventDefault(); navigate("participants", activeSession ? { sessionId: activeSession.id } : {}); }}><span aria-hidden="true">♟</span> Peserta</a>
+        <a className={`nav__item ${activeNav === "bracket" ? "nav__item--active" : ""}`} href={activeSession ? `/bracket/${encodeURIComponent(activeSession.id)}` : "/bracket"} onClick={event => { event.preventDefault(); navigate("bracket", activeSession ? { sessionId: activeSession.id } : {}); }}><span aria-hidden="true">⌘</span> Bagan Pertandingan</a>
+        <a className={`nav__item ${activeNav === "leaderboard" ? "nav__item--active" : ""}`} href="/leaderboard" onClick={event => { event.preventDefault(); navigate("leaderboard"); }}><span aria-hidden="true">🏆</span> Leaderboard</a>
       </nav>
       <div className="sidebar__bottom"><div className="connection"><span className="connection__dot"/><span>Data kompetisi</span></div><p>Gamebell · 2026</p></div>
     </aside>
     <main className="main">
       <header className="topbar"><div><p className="eyebrow">KARAMBOL CLUB / 2026</p><h1>{pageTitle}</h1></div><button className="button button--primary" onClick={() => setCreateOpen(true)}>＋ Buat Sesi</button></header>
-      <section className={`view ${!activeSession ? "view--active" : ""}`} aria-labelledby="sessions-heading">
+      <section className={`view ${!leaderboardPage && !activeSession ? "view--active" : ""}`} aria-labelledby="sessions-heading">
         <SessionList sessions={sessions} loading={loading} onOpen={id => navigate("competition-detail", { sessionId: id })} onCreate={() => setCreateOpen(true)}/>
         {loadError && <button className="button button--outline" onClick={() => setReloadCount(value => value + 1)}>Coba muat ulang</button>}
       </section>
-      <section className={`view ${activeSession ? "view--active" : ""}`} aria-label="Detail kompetisi">
+      <section className={`view ${!leaderboardPage && activeSession ? "view--active" : ""}`} aria-label="Detail kompetisi">
         {detailLoading ? <div className="empty-state"><h3>Memuat data kompetisi…</h3></div> : activeSession && <CompetitionDetail competition={activeSession} activeTab={activeTab} onNavigate={navigate} onAddParticipant={() => setParticipantOpen(true)} onEditScore={setScoreMatchId} onChooseWinner={setWinnerMatchId} onExport={exportPlaybook}/>}
       </section>
+      <section className={`view ${leaderboardPage ? "view--active" : ""}`} aria-label="Global leaderboard"><Leaderboard data={leaderboard} loading={leaderboardLoading} error={leaderboardError} route={route} onNavigate={navigate} onRetry={() => setLeaderboardReload(value => value + 1)}/></section>
     </main>
     <CreateCompetitionDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={createCompetition} saving={saving === "create"}/>
     <ScoreDialog open={Boolean(scoreMatchId)} onOpenChange={open => { if (!open) setScoreMatchId(null); }} competition={activeSession} match={scoreMatch} onSubmit={saveScore} saving={saving === "score"}/>

@@ -2,6 +2,8 @@
 
 Karambell is a tournament management app for single-elimination competitions. It supports participant and team competitions, team pairing, brackets and byes, match results, winner advancement, champion display, and competition progress.
 
+This project is distributed under the [MIT License](LICENSE). See the [changelog](CHANGELOG.md) for release notes.
+
 The application uses React for its interface and Vite for development and production builds. Existing CSS, fonts, favicon, and visual styling are retained. `historypp` remains the only client-side routing engine.
 
 ## Architecture
@@ -112,7 +114,7 @@ pnpm dev
 
 Open the Vite URL printed in the terminal (normally `http://localhost:5173`). `server.js` also serves the production `dist/` directory after a build. The Google Apps Script URL can be overridden for the local proxy with `APPS_SCRIPT_URL`.
 
-Google Sheets keeps its existing `listSessions`, `getSession`, `createSession`, `addParticipant`, and `updateMatchScore` actions. Persisting competition status also calls `updateSessionStatus`, which updates the existing session status field. That action must be available in the deployed Apps Script. Its source is maintained outside this repository. Netlify Functions use the `APPS_SCRIPT_URL` environment variable when configured, otherwise the existing default endpoint.
+Google Sheets keeps its existing `listSessions`, `getSession`, `createSession`, `addParticipant`, and `updateMatchScore` actions. Persisting competition status also calls `updateSessionStatus`, which updates the existing session status field. The contributor-ready Apps Script and provider-specific schemas are documented in [`docs/data-providers`](docs/data-providers/README.md). Deploy the checked-in `Code.gs` to Apps Script when updating an existing deployment. Netlify Functions use the `APPS_SCRIPT_URL` environment variable when configured, otherwise the existing default endpoint.
 
 ## Competition progress
 

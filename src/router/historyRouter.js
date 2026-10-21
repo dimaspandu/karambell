@@ -23,6 +23,11 @@ function resolveLocation() {
     return { name: "home", sessionId: null, tab: null, error: null };
   }
   if (pathname === "/competitions") return { name: "competitions", sessionId: null, tab: null, error: null };
+  if (pathname === "/leaderboard") return { name: "leaderboard", sessionId: null, teamKey: null, error: null };
+  const tournament = pathname.match(/^\/leaderboard\/teams\/([^/]+)\/tournaments\/([^/]+)$/);
+  if (tournament) return { name: "leaderboard-tournament", sessionId: safeDecode(tournament[2]), teamKey: safeDecode(tournament[1]), error: null };
+  const team = pathname.match(/^\/leaderboard\/teams\/([^/]+)$/);
+  if (team) return { name: "leaderboard-team", sessionId: null, teamKey: safeDecode(team[1]), error: null };
   const detail = pathname.match(/^\/competitions\/([^/]+)$/);
   if (detail) {
     const sessionId = safeDecode(detail[1]);
@@ -54,7 +59,7 @@ function onMeet() {
 function startRouter() {
   if (!registered) {
     registered = true;
-    for (const path of ["/", "/competitions", "/competitions/:sessionId", "/participants", "/participants/:sessionId", "/bracket", "/bracket/:sessionId", "/matches", "/matches/:sessionId"]) {
+    for (const path of ["/", "/competitions", "/competitions/:sessionId", "/leaderboard", "/leaderboard/teams/:teamKey", "/leaderboard/teams/:teamKey/tournaments/:sessionId", "/participants", "/participants/:sessionId", "/bracket", "/bracket/:sessionId", "/matches", "/matches/:sessionId"]) {
       engine.router(path, { onMeet });
     }
     engine.notFound(() => {
@@ -66,10 +71,10 @@ function startRouter() {
 }
 
 function navigate(name, params = {}, { replace = false } = {}) {
-  const paths = { home: "/", competitions: "/competitions", "competition-detail": "/competitions", participants: "/participants", bracket: "/bracket", matches: "/matches" };
+  const paths = { home: "/", competitions: "/competitions", "competition-detail": "/competitions", participants: "/participants", bracket: "/bracket", matches: "/matches", leaderboard: "/leaderboard", "leaderboard-team": "/leaderboard/teams", "leaderboard-tournament": "/leaderboard/teams" };
   if (!paths[name]) throw new Error(`Rute tidak dikenal: ${name}`);
   if (name === "competition-detail" && !params.sessionId) name = "competitions";
-  const path = name === "competition-detail" || (name !== "home" && name !== "competitions" && params.sessionId)
+  const path = name === "leaderboard-team" ? `${paths[name]}/${encodeURIComponent(params.teamKey)}` : name === "leaderboard-tournament" ? `${paths[name]}/${encodeURIComponent(params.teamKey)}/tournaments/${encodeURIComponent(params.sessionId)}` : name === "competition-detail" || (name !== "home" && name !== "competitions" && name !== "leaderboard" && params.sessionId)
     ? `${paths[name]}/${encodeURIComponent(params.sessionId)}`
     : paths[name];
   const url = new URL(window.location.href);

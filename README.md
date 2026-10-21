@@ -12,9 +12,9 @@ The application uses React for its interface and Vite for development and produc
 src/
   App.jsx                      application state and operations
   main.jsx                     React/Vite entry point
-  components/                  competition list, detail, bracket, dialogs
+  components/                  competition and leaderboard views, bracket, dialogs
   config/                      active provider configuration
-  domain/                      shared application models and progress rules
+  domain/                      shared models, progress rules, and leaderboard aggregation
   providers/                   isolated Google Sheets and Supabase adapters
   router/                      small historypp-to-React integration
   services/                    centralized provider selection
@@ -120,6 +120,14 @@ Google Sheets keeps its existing `listSessions`, `getSession`, `createSession`, 
 
 Completed and bye matches count as decided. A competition is complete only when all matches are decided and the final has a winner. The same domain rule drives the card, details, champion, and both provider status updates. The Supabase adapter writes `sessions.status`; the Sheets adapter calls the status action above. No database or spreadsheet structure change is made by this app.
 
+## Global leaderboard
+
+The `/leaderboard` page aggregates teams from completed team tournaments. Open a team to see its global wins, losses, win rate, rank, and tournament history; open a tournament entry to see that team's ordered match history. Team and tournament detail URLs can be refreshed directly and participate in browser back/forward navigation.
+
+Both configured providers feed the same shared domain aggregation. Teams are matched across tournaments by their two normalized player names, independent of order, spacing, and letter case. Rankings use unrounded win rates, followed by wins, tournaments played, and a deterministic identity key. Byes count as tournament participation and appear as informational history entries, but do not count as wins, losses, or played matches. Numeric scores are omitted because team-result score fields are not consistently actual game scores across providers.
+
+The app does not have a global player registry: different people with identical normalized names may be combined, and a name change may split a team's history. Google Sheets encodes a team with `&`, so a player name containing that delimiter is ambiguous. See the [provider notes](docs/data-providers/README.md) for these identity limitations.
+
 ## Netlify deployment
 
 Netlify runs `pnpm build` and publishes `dist/`. `vite.config.js` uses `/` as the production base and copies `public/`, including the favicon and `_redirects`, into the build. The SPA fallback serves `/index.html` for frontend routes, while `/api/*` remains handled by the Netlify Function configured in `netlify/functions/api.mjs`. Direct route refreshes are supported by the fallback rule in `netlify.toml` and `public/_redirects`.
@@ -128,4 +136,4 @@ Set `APPS_SCRIPT_URL` in Netlify Function environment settings only if using a d
 
 ## Validation
 
-`pnpm test` covers bye and completion calculations, pending finals, ongoing competitions, and provider-specific session-status persistence mappings. `pnpm build` verifies the production Vite bundle. The build does not test live Google Sheets, live Supabase credentials/RLS, or a deployed Netlify site; run those service checks with the appropriate deployment credentials.
+`pnpm test` covers competition progress, provider-specific session-status persistence, leaderboard team identity normalization, aggregation across sessions, bye participation, ranking, and match history. `pnpm build` verifies the production Vite bundle. These checks do not contact live Google Sheets or Supabase, validate Supabase RLS, or exercise a deployed Netlify site.

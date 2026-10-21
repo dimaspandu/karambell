@@ -11,6 +11,7 @@ import { dataService } from "./data/service.js";
     activeTab: "bracket",
     listRouteName: "home",
     toastTimer: null,
+    toastHideTimer: null,
     loading: false,
     routeRequest: 0
   };
@@ -151,7 +152,7 @@ import { dataService } from "./data/service.js";
       }
     } catch (error) {
       renderSessions();
-      showToast(`Gagal memuat kompetisi: ${error.message}`);
+      reportOperationFailure("Gagal memuat data kompetisi. Silakan coba lagi.", error);
     } finally {
       state.loading = false;
       renderSessions();
@@ -260,9 +261,21 @@ import { dataService } from "./data/service.js";
   function showToast(message) {
     const toast = $("#toast");
     toast.textContent = message;
-    toast.classList.add("toast--visible");
     clearTimeout(state.toastTimer);
-    state.toastTimer = setTimeout(() => toast.classList.remove("toast--visible"), 2600);
+    clearTimeout(state.toastHideTimer);
+    if (typeof toast.showPopover === "function" && !toast.matches(":popover-open")) toast.showPopover();
+    toast.classList.add("toast--visible");
+    state.toastTimer = setTimeout(() => {
+      toast.classList.remove("toast--visible");
+      state.toastHideTimer = setTimeout(() => {
+        if (typeof toast.hidePopover === "function" && toast.matches(":popover-open")) toast.hidePopover();
+      }, 220);
+    }, 2600);
+  }
+
+  function reportOperationFailure(message, error) {
+    console.error(message, error);
+    showToast(message);
   }
 
   function showView(view) {
@@ -280,7 +293,7 @@ import { dataService } from "./data/service.js";
     $("#session-count").textContent = `${state.sessions.length} sesi`;
     const list = $("#session-list");
     if (!state.sessions.length) {
-      const title = state.loading ? "Menghubungkan ke Google Sheets…" : "Belum ada sesi kompetisi";
+      const title = state.loading ? "Menghubungkan ke layanan data…" : "Belum ada sesi kompetisi";
       const description = state.loading ? "Mengambil data sesi yang tersimpan." : "Buat sesi pertamamu untuk mulai menyusun bagan.";
       list.innerHTML = `<div class="empty-state"><h3>${title}</h3><p>${description}</p>${state.loading ? "" : `<button class="button button--primary" data-action="create">＋ Buat Sesi</button>`}</div>`;
       return;
@@ -491,7 +504,7 @@ import { dataService } from "./data/service.js";
       state.listRouteName = "competitions";
       showView("sessions");
       renderSessions();
-      showToast(`Gagal memuat detail sesi: ${error.message}`);
+      reportOperationFailure("Gagal memuat data kompetisi. Silakan coba lagi.", error);
       window.KarambellRouter.navigate("competitions", {}, { replace: true });
       return;
     }
@@ -653,7 +666,7 @@ import { dataService } from "./data/service.js";
       showToast("Hasil Menang/Kalah tersimpan dan bagan diperbarui.");
       return true;
     } catch (error) {
-      showToast(`Gagal menyimpan hasil: ${error.message}`);
+      reportOperationFailure("Gagal menyimpan perubahan. Silakan coba lagi.", error);
       return false;
     }
   }
@@ -676,7 +689,8 @@ import { dataService } from "./data/service.js";
           name: String(formData.get("name") || "").trim(),
           event_date: String(formData.get("date") || ""),
           location: String(formData.get("location") || "").trim(),
-          format: String(formData.get("format") || "team_single_elimination"),
+          format: String(formData.get("format") || "single_elimination"),
+          isTeamCompetition: true,
           participants: teamNames
       });
       const session = normalizeSession(result);
@@ -689,10 +703,10 @@ import { dataService } from "./data/service.js";
       renderSessions();
       $("#create-session-modal").close();
       window.KarambellRouter.navigate("bracket", { sessionId: session.id });
-      showToast("Sesi tersimpan di Google Sheets.");
+      showToast("Sesi tersimpan dan bagan dibuat.");
       return true;
     } catch (error) {
-      showToast(`Gagal membuat sesi: ${error.message}`);
+      reportOperationFailure("Gagal membuat kompetisi. Silakan coba lagi.", error);
       return false;
     } finally {
       submitButton.textContent = "Buat Sesi";
@@ -804,9 +818,9 @@ import { dataService } from "./data/service.js";
       renderDetails();
       renderSessions();
       $("#score-modal").close();
-      showToast("Skor tersimpan di Google Sheets dan bagan diperbarui.");
+      showToast("Skor tersimpan dan bagan diperbarui.");
     } catch (error) {
-      showToast(`Gagal menyimpan skor: ${error.message}`);
+      reportOperationFailure("Gagal menyimpan perubahan. Silakan coba lagi.", error);
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = "Simpan Skor";
@@ -849,9 +863,9 @@ import { dataService } from "./data/service.js";
       renderSessions();
       $("#participant-modal").close();
       form.reset();
-      showToast("Peserta tersimpan di Google Sheets dan bagan diperbarui.");
+      showToast("Peserta tersimpan dan bagan diperbarui.");
     } catch (error) {
-      showToast(`Gagal menambahkan peserta: ${error.message}`);
+      reportOperationFailure("Gagal menyimpan perubahan. Silakan coba lagi.", error);
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = "Tambah";

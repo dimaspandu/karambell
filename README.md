@@ -40,7 +40,7 @@ Pemilihan provider terpusat di `js/data/config.js` melalui `dataProvider`. Defau
 
 `js/data/service.js` adalah antarmuka repository yang dipakai UI: `listCompetitions`, `getCompetition`, `createCompetition`, `addPlayer`, `recordScore`, dan `recordWinner`. Kedua provider mengembalikan bentuk payload kompetisi yang sama sebelum dinormalisasi oleh aplikasi. Google Sheets tetap memakai proxy dan action Apps Script `listSessions`, `getSession`, `createSession`, `addParticipant`, serta `updateMatchScore`; skornya tetap numerik. Supabase memetakan `sessions`, `players`, `teams`, `team_members`, dan `matches` ke model yang sama: tim menjadi competitor ber-ID team, anggota digabung sebagai nama `Pemain A & Pemain B`, dan `winner_team_id` menjadi winner ID.
 
-Implementasi Supabase mengasumsikan kolom standar berikut tersedia: `sessions.id/name/event_date/location/format/status`; `players.id/session_id/name/seed`; `teams.id/session_id/name/seed`; `team_members.team_id/player_id/position`; `matches.id/session_id/round/match_number/team1_id/team2_id/winner_team_id/status/next_match_id/next_slot`. Nama/struktur kolom aktual belum dapat diverifikasi dari repository ini, jadi sesuaikan mapping bila skema project berbeda. Bye disimpan dengan status `completed` dan winner, lalu dipetakan menjadi status UI `bye`. Tidak ada SQL/schema otomatis yang dijalankan. RLS harus mengizinkan operasi SELECT/INSERT/UPDATE yang diperlukan untuk kelima tabel; kebijakan anon write terbuka berarti siapa pun yang dapat mengakses aplikasi/API dapat mengubah data. Hindari perubahan policy otomatis dari frontend.
+Implementasi Supabase mengasumsikan kolom standar berikut tersedia: `sessions.id/name/event_date/location/format/status`; `players.id/session_id/name/seed`; `teams.id/session_id/name/seed`; `team_members.session_id/team_id/player_id/position`; `matches.id/session_id/round/match_number/team1_id/team2_id/winner_team_id/status/next_match_id/next_slot`. Nama/struktur kolom aktual belum dapat diverifikasi dari repository ini, jadi sesuaikan mapping bila skema project berbeda. Bye disimpan dengan status `completed` dan winner, lalu dipetakan menjadi status UI `bye`. Tidak ada SQL/schema otomatis yang dijalankan. RLS harus mengizinkan operasi SELECT/INSERT/UPDATE yang diperlukan untuk kelima tabel; kebijakan anon write terbuka berarti siapa pun yang dapat mengakses aplikasi/API dapat mengubah data. Hindari perubahan policy otomatis dari frontend.
 
 Limitasi: mode Supabase saat ini membuat kompetisi tim dan mendukung hasil/progres bracket, serta tambah pemain individual. Google Sheets tetap satu-satunya provider yang diketahui mendukung kompetisi individual lama secara lengkap; mapping Google tidak menganggap ID peserta individual sebagai ID tim. Untuk mencocokkan Supabase dengan skema deployment sebenarnya, verifikasi nama kolom, foreign key, nilai status, dan RLS sebelum memilih provider tersebut.
 
@@ -74,7 +74,7 @@ node server.js
 Buka `http://127.0.0.1:3000`. Node.js 18+ diperlukan karena proxy memakai `fetch` bawaan.
 
 ## Yang sudah bisa dicoba
-- Memuat daftar sesi dari Google Sheets saat halaman dibuka.
+- Memuat daftar sesi kompetisi saat halaman dibuka.
 - Membuat sesi tim baru: pemain diacak dengan Fisher–Yates sebelum sesi dibuat. Pasangan tersimpan sebagai baris peserta/kompetitor yang sudah ada, dengan `participant_id` dari Sheets dipakai sebagai ID tim dan `format` menandai mode tim.
 - Kompetisi lama tetap menggunakan peserta individual dan alur skor numerik yang sudah ada.
 - Melihat bracket, peserta, dan daftar pertandingan dari data tersimpan.
@@ -83,7 +83,7 @@ Buka `http://127.0.0.1:3000`. Node.js 18+ diperlukan karena proxy memakai `fetch
 - Membuat Playbook melalui dialog cetak browser, lalu pilih **Save as PDF**.
 
 ## Troubleshooting
-- Jika muncul pesan gagal memuat Google Sheets, pastikan Apps Script sudah di-deploy sebagai Web App dan akses deployment mengizinkan Node.js memanggilnya.
+- Jika memilih provider Google Sheets dan pemuatan data gagal, pastikan Apps Script sudah di-deploy sebagai Web App dan akses deployment mengizinkan Node.js memanggilnya.
 - Pastikan fungsi `setupSheets()` sudah dijalankan dan Script Property `SPREADSHEET_ID` telah disetel di Apps Script.
 - Periksa **Apps Script → Executions** untuk error yang terjadi di sisi Google.
 - Data tidak lagi menggunakan demo di browser; sesi baru hanya muncul setelah berhasil tersimpan melalui API.

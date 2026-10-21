@@ -77,6 +77,7 @@ export default async function handler(request) {
 
   const actions = {
     "/api/sessions": { action: "createSession", status: 201 },
+    "/api/sessions/status": { action: "updateSessionStatus", status: 200 },
     "/api/participants": { action: "addParticipant", status: 200 },
     "/api/matches/score": { action: "updateMatchScore", status: 200 }
   };
@@ -84,6 +85,9 @@ export default async function handler(request) {
     try {
       const input = await readJsonBody(request);
       const route = actions[url.pathname];
+      if (url.pathname === "/api/sessions/status" && (!input.session_id || !["completed", "in_progress"].includes(input.status))) {
+        return jsonResponse(400, { ok: false, error: "session_id and a valid status are required." });
+      }
       const data = await callAppsScript({ method: "POST", body: { ...input, action: route.action } });
       return jsonResponse(route.status, { ok: true, data });
     } catch (error) {

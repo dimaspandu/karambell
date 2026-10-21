@@ -100,6 +100,13 @@ async function handleApi(req, res, url) {
       return sendJson(res, 201, { ok: true, data });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/sessions/status") {
+      const input = await readJsonBody(req);
+      if (!input.session_id || !["completed", "in_progress"].includes(input.status)) return sendJson(res, 400, { ok: false, error: "session_id and a valid status are required." });
+      const data = await callAppsScript({ method: "POST", body: { session_id: input.session_id, status: input.status, action: "updateSessionStatus" } });
+      return sendJson(res, 200, { ok: true, data });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/participants") {
       const input = await readJsonBody(req);
       const data = await callAppsScript({ method: "POST", body: { ...input, action: "addParticipant" } });

@@ -1,4 +1,5 @@
 import { dataService } from "./data/service.js";
+import { getCompetitionProgress } from "./data/competition-progress.js";
 
 (() => {
   "use strict";
@@ -233,7 +234,7 @@ import { dataService } from "./data/service.js";
         }
       }
     }
-    session.status = session.matches.every(match => match.status === "completed" || match.status === "bye") ? "completed" : "in_progress";
+    session.status = getCompetitionProgress(session.matches).status;
   }
 
   function getParticipant(session, id) {
@@ -251,7 +252,7 @@ import { dataService } from "./data/service.js";
   }
 
   function completedCount(session) {
-    return session.matches.filter(match => match.status === "completed").length;
+    return getCompetitionProgress(session.matches).completedMatches;
   }
 
   function competitorCountLabel(session) {
@@ -299,16 +300,14 @@ import { dataService } from "./data/service.js";
       return;
     }
     list.innerHTML = state.sessions.map(session => {
-      const done = completedCount(session);
-      const total = session.matches.length;
-      const progress = total ? Math.round(done / total * 100) : 0;
-      const championMatch = session.matches.find(match => match.round === session.totalRounds);
-      const champion = championMatch?.winnerId ? getParticipant(session, championMatch.winnerId)?.name : null;
+      const summary = getCompetitionProgress(session.matches);
+      const { completedMatches: done, totalMatches: total, progress } = summary;
+      const champion = summary.championId ? getParticipant(session, summary.championId)?.name : null;
       return `<button class="session-card" data-open-session="${escapeHTML(session.id)}">
         <div class="session-card__top"><span class="session-card__emblem">✦</span><span class="session-card__arrow">↗</span></div>
         <h3>${escapeHTML(session.name)}</h3>
         <p class="session-card__meta">${escapeHTML(formatDate(session.date))}${session.location ? ` · ${escapeHTML(session.location)}` : ""}</p>
-        <div class="session-card__bottom"><span>${competitorCountLabel(session)}</span><span>${session.status === "completed" ? "Selesai" : "Berlangsung"}</span></div>
+        <div class="session-card__bottom"><span>${competitorCountLabel(session)}</span><span>${summary.isComplete ? "Selesai" : "Berlangsung"}</span></div>
         <div class="progress" aria-label="Progres ${progress}%"><span style="width:${progress}%"></span></div>
         <div class="session-card__bottom"><span>${done} dari ${total} pertandingan selesai</span><span>${champion ? `Juara: ${escapeHTML(champion)}` : `${progress}%`}</span></div>
       </button>`;
@@ -318,13 +317,13 @@ import { dataService } from "./data/service.js";
   function renderDetails() {
     const session = currentSession();
     if (!session) return;
-    const done = completedCount(session);
+    const summary = getCompetitionProgress(session.matches);
+    const done = summary.completedMatches;
     const total = session.matches.length;
-    const finalMatch = session.matches.find(match => match.round === session.totalRounds);
-    const champion = finalMatch?.winnerId ? getParticipant(session, finalMatch.winnerId)?.name : null;
+    const champion = summary.championId ? getParticipant(session, summary.championId)?.name : null;
     $("#detail-title").textContent = session.name;
     $("#detail-meta").textContent = `${session.isTeamCompetition ? `${session.participants.length * 2} pemain · ${session.participants.length} tim` : `${session.participants.length} peserta`} · ${formatDate(session.date)}${session.location ? ` · ${session.location}` : ""}`;
-    $("#detail-status").textContent = session.status === "completed" ? "Selesai" : "Berlangsung";
+    $("#detail-status").textContent = summary.isComplete ? "Selesai" : "Berlangsung";
     $("#detail-format").textContent = session.isTeamCompetition ? "Tim · Single elimination" : "Single elimination";
     $("#stat-participants-label").textContent = session.isTeamCompetition ? "Tim" : "Peserta";
     $("#stat-participants").textContent = session.participants.length;

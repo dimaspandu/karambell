@@ -1,4 +1,5 @@
 import { dataConfig } from "./config.js";
+import { getCompetitionProgress } from "./competition-progress.js";
 
 async function request(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
@@ -9,6 +10,15 @@ async function request(path, options = {}) {
 }
 
 function googleSheetsProvider() {
+  async function updateScore(input) {
+    await request("/api/matches/score", { method: "POST", body: JSON.stringify(input) });
+    const competition = await request(`/api/session?session_id=${encodeURIComponent(input.session_id)}`);
+    const { status } = getCompetitionProgress(competition.matches || []);
+    await request("/api/sessions/status", { method: "POST", body: JSON.stringify({ session_id: input.session_id, status }) });
+    const updated = await request(`/api/session?session_id=${encodeURIComponent(input.session_id)}`);
+    if (String(updated.session?.status) !== status) throw new Error("Status kompetisi belum tersimpan. Silakan coba lagi.");
+    return updated;
+  }
   return {
     async listCompetitions() {
       const result = await request("/api/sessions");
@@ -21,8 +31,8 @@ function googleSheetsProvider() {
       return request("/api/sessions", { method: "POST", body: JSON.stringify({ ...payload, format: isTeamCompetition ? "team_single_elimination" : payload.format }) });
     },
     addPlayer: input => request("/api/participants", { method: "POST", body: JSON.stringify(input) }),
-    recordWinner: input => request("/api/matches/score", { method: "POST", body: JSON.stringify(input) }),
-    recordScore: input => request("/api/matches/score", { method: "POST", body: JSON.stringify(input) })
+    recordWinner: updateScore,
+    recordScore: updateScore
   };
 }
 
@@ -107,6 +117,10 @@ function supabaseProvider(url, key) {
       if (source.winner_team_id && [source.team1_id, source.team2_id].some(id => String(id) === String(source.winner_team_id))) advancing = source.winner_team_id;
       else break;
     }
+    const competition = await getCompetition(session_id);
+    const { status } = getCompetitionProgress(competition.matches);
+    const savedSessions = await query("sessions", { id: byId(session_id) }, { method: "PATCH", body: { status } });
+    if (!savedSessions.some(session => String(session.id) === String(session_id) && session.status === status)) throw new Error("Status kompetisi belum tersimpan.");
     return getCompetition(session_id);
   }
   return {

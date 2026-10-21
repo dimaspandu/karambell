@@ -109,6 +109,7 @@ export const config = {
   path: [
     "/api/health",
     "/api/sessions",
+    "/api/sessions/status",
     "/api/session",
     "/api/participants",
     "/api/matches/score"

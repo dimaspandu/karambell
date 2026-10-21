@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getCompetitionProgress } from "../js/data/competition-progress.js";
+import { getCompetitionProgress } from "../src/domain/competitionProgress.js";
 
 test("counts bye matches as decided and reports a complete competition", () => {
   const progress = getCompetitionProgress([

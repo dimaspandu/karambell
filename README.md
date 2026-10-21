@@ -1,90 +1,129 @@
-# Karambell — UI Prototype
+# Karambell
 
-UI pengelolaan sesi kompetisi karambol, terhubung ke Google Sheets melalui Google Apps Script dan proxy API Node.js.
+Karambell is a tournament management app for single-elimination competitions. It supports participant and team competitions, team pairing, brackets and byes, match results, winner advancement, champion display, and competition progress.
 
-## Jalankan secara lokal
-Live Server hanya menyajikan file statis, sehingga request frontend ke `/api/sessions` akan mendapat 404. Jalankan backend Node.js yang sudah menyertakan proxy Google Apps Script:
+The application uses React for its interface and Vite for development and production builds. Existing CSS, fonts, favicon, and visual styling are retained. `historypp` remains the only client-side routing engine.
+
+## Architecture
+
+```text
+src/
+  App.jsx                      application state and operations
+  main.jsx                     React/Vite entry point
+  components/                  competition list, detail, bracket, dialogs
+  config/                      active provider configuration
+  domain/                      shared application models and progress rules
+  providers/                   isolated Google Sheets and Supabase adapters
+  router/                      small historypp-to-React integration
+  services/                    centralized provider selection
+  styles/                      existing application stylesheet
+  libs/historypp/              pinned Git submodule
+public/                         static assets and Netlify redirects
+netlify/functions/api.mjs       Google Apps Script proxy for Netlify
+server.js                       local Google Apps Script proxy and dist preview
+```
+
+`src/services/dataService.js` selects exactly one provider from `src/config/data.js`. The UI uses the same application-level operations for either provider. `src/providers/googleSheets.js` retains the Apps Script payloads and IDs; `src/providers/supabase.js` maps independently to the existing `sessions`, `players`, `teams`, `team_members`, and `matches` schema. There is no automatic provider fallback or synchronization.
+
+The Supabase adapter assumes the column names currently documented in this repository. It does not run schema migrations. The browser uses only the configured public publishable/anon key; never put a service-role key in client configuration.
+
+Provider selection and credentials are kept in one source file: `src/config/data.js`. `src/config/data.example.js` is a blank Google Sheets example. Set `dataProvider` to `"google-sheets"` or `"supabase"`; set `supabaseUrl` and `supabaseAnonKey` when Supabase is active. These values are bundled into the browser app, so only public values belong there. There are no Vite environment variables required by this app.
+
+## historypp submodule
+
+`historypp` is a UI-agnostic router that owns route matching, push/replace navigation, and browser back/forward handling. The adapter at `src/router/historyRouter.js` registers the existing routes using the library's `createEngine()` API and publishes route changes to React. The app keeps the existing route names and URL forms, including `/competitions/:sessionId`, `/participants/:sessionId`, `/bracket/:sessionId`, `/matches/:sessionId`, and legacy `/?session_id=...` links.
+
+The submodule is `https://github.com/dimaspandu/historypp.git`, at `src/libs/historypp`, pinned to commit `c5acfe3cb5e71f551dad286c689a388b45405e56`. Pinning keeps builds reproducible; dependency installation, development, builds, and deployment never fetch a newer router revision.
+
+Initialize it after cloning:
+
+```bash
+git submodule update --init --recursive
+```
+
+Inspect the pinned commit:
+
+```bash
+git submodule status
+```
+
+To intentionally update it, run the following maintenance command, then inspect the new commit and upstream changes, run tests and a production build, and verify routes:
+
+```bash
+git submodule update --remote src/libs/historypp
+```
+
+That update is manual. The parent repository's submodule reference should only be committed when explicitly authorized.
+
+## Prerequisites and pnpm
+
+- Node.js `>=20.19.0` (Netlify is configured to use Node.js `22.12.0`).
+- pnpm `11.24.0`, pinned by the `packageManager` field in `package.json`.
+
+pnpm is the only package manager for this project. Install dependencies:
+
+```bash
+pnpm install
+```
+
+The repository's `pnpm-workspace.yaml` permits the `esbuild` install script because Vite needs its platform binary. No historypp synchronization runs during install.
+
+Run the Vite development server:
+
+```bash
+pnpm dev
+```
+
+Build and preview production output:
+
+```bash
+pnpm build
+pnpm preview
+```
+
+Run automated tests:
+
+```bash
+pnpm test
+```
+
+### Clean checkout
+
+```bash
+git clone --recurse-submodules https://github.com/dimaspandu/karambell.git
+cd karambell
+git submodule update --init --recursive
+pnpm install
+```
+
+Review `src/config/data.js`, then start development with `pnpm dev`.
+
+## Local API proxy
+
+The Vite development server proxies `/api` requests to `http://127.0.0.1:3000`. To use Google Sheets locally, run the proxy in a second terminal, then run Vite in the first:
 
 ```bash
 node server.js
 ```
 
-Buka `http://127.0.0.1:3000`.
-
-Jangan buka aplikasi lewat port Live Server (`5500`); gunakan alamat yang dicetak oleh `node server.js`.
-Server lokal juga mengembalikan `index.html` untuk path aplikasi seperti `/bracket/<session-id>` saat halaman di-refresh.
-
-Port dan host bisa diubah melalui environment variable:
-
 ```bash
-PORT=3001 node server.js
+pnpm dev
 ```
 
-Di PowerShell Windows:
+Open the Vite URL printed in the terminal (normally `http://localhost:5173`). `server.js` also serves the production `dist/` directory after a build. The Google Apps Script URL can be overridden for the local proxy with `APPS_SCRIPT_URL`.
 
-```powershell
-$env:PORT=3001; node server.js
-```
+Google Sheets keeps its existing `listSessions`, `getSession`, `createSession`, `addParticipant`, and `updateMatchScore` actions. Persisting competition status also calls `updateSessionStatus`, which updates the existing session status field. That action must be available in the deployed Apps Script. Its source is maintained outside this repository. Netlify Functions use the `APPS_SCRIPT_URL` environment variable when configured, otherwise the existing default endpoint.
 
-Server hanya melayani file statis dengan metode GET/HEAD. Untuk penggunaan lokal, host default `127.0.0.1` membuat server hanya bisa diakses dari komputer sendiri.
+## Competition progress
 
-## Integrasi Google Sheets
-Node.js menjadi proxy server-side ke Google Apps Script. URL Apps Script yang diberikan sudah disetel sebagai default di `server.js`. Bisa dioverride lewat environment variable `APPS_SCRIPT_URL`.
+Completed and bye matches count as decided. A competition is complete only when all matches are decided and the final has a winner. The same domain rule drives the card, details, champion, and both provider status updates. The Supabase adapter writes `sessions.status`; the Sheets adapter calls the status action above. No database or spreadsheet structure change is made by this app.
 
-Saat di-deploy ke Netlify, endpoint yang sama dilayani oleh Netlify Function di `netlify/functions/api.mjs`. Konfigurasi `netlify.toml` menjalankan `scripts/build-netlify.mjs` untuk menyalin frontend ke `dist/`, lalu mem-publish folder itu. Rewrite SPA mengirim path aplikasi ke `index.html`; route API tetap diproses Netlify Function. Jika memakai Apps Script deployment lain, atur environment variable `APPS_SCRIPT_URL` pada Netlify untuk scope Functions, lalu deploy ulang.
+## Netlify deployment
 
-Untuk menguji function Netlify secara lokal, gunakan Netlify CLI (`netlify dev`); Live Server tidak menjalankan Netlify Functions.
+Netlify runs `pnpm build` and publishes `dist/`. `vite.config.js` uses `/` as the production base and copies `public/`, including the favicon and `_redirects`, into the build. The SPA fallback serves `/index.html` for frontend routes, while `/api/*` remains handled by the Netlify Function configured in `netlify/functions/api.mjs`. Direct route refreshes are supported by the fallback rule in `netlify.toml` and `public/_redirects`.
 
-## Data provider
-Pemilihan provider terpusat di `js/data/config.js` melalui `dataProvider`. Default tetap `google-sheets`; ubah ke `supabase` untuk memakai Supabase PostgreSQL Data API. Isi `supabaseUrl` dan `supabaseAnonKey` pada file yang sama dengan project URL dan publishable/anon key. Key tersebut memang dapat dilihat browser; jangan pernah memasukkan service-role/secret key.
+Set `APPS_SCRIPT_URL` in Netlify Function environment settings only if using a different Apps Script deployment. Provider selection and Supabase public values remain in `src/config/data.js`; a redeploy is required after changing that file.
 
-`js/data/service.js` adalah antarmuka repository yang dipakai UI: `listCompetitions`, `getCompetition`, `createCompetition`, `addPlayer`, `recordScore`, dan `recordWinner`. Kedua provider mengembalikan bentuk payload kompetisi yang sama sebelum dinormalisasi oleh aplikasi. Google Sheets tetap memakai proxy dan action Apps Script `listSessions`, `getSession`, `createSession`, `addParticipant`, `updateMatchScore`, serta `updateSessionStatus`; skornya tetap numerik. Action `updateSessionStatus` memperbarui field status sesi yang sudah ada dan harus tersedia pada deployment Apps Script agar perubahan status kompetisi tersimpan. Supabase memetakan `sessions`, `players`, `teams`, `team_members`, dan `matches` ke model yang sama: tim menjadi competitor ber-ID team, anggota digabung sebagai nama `Pemain A & Pemain B`, dan `winner_team_id` menjadi winner ID.
+## Validation
 
-Implementasi Supabase mengasumsikan kolom standar berikut tersedia: `sessions.id/name/event_date/location/format/status`; `players.id/session_id/name/seed`; `teams.id/session_id/name/seed`; `team_members.session_id/team_id/player_id/position`; `matches.id/session_id/round/match_number/team1_id/team2_id/winner_team_id/status/next_match_id/next_slot`. Nama/struktur kolom aktual belum dapat diverifikasi dari repository ini, jadi sesuaikan mapping bila skema project berbeda. Bye disimpan dengan status `completed` dan winner, lalu dipetakan menjadi status UI `bye`. Tidak ada SQL/schema otomatis yang dijalankan. RLS harus mengizinkan operasi SELECT/INSERT/UPDATE yang diperlukan untuk kelima tabel; kebijakan anon write terbuka berarti siapa pun yang dapat mengakses aplikasi/API dapat mengubah data. Hindari perubahan policy otomatis dari frontend.
-
-Limitasi: mode Supabase saat ini membuat kompetisi tim dan mendukung hasil/progres bracket, serta tambah pemain individual. Google Sheets tetap satu-satunya provider yang diketahui mendukung kompetisi individual lama secara lengkap; mapping Google tidak menganggap ID peserta individual sebagai ID tim. Untuk mencocokkan Supabase dengan skema deployment sebenarnya, verifikasi nama kolom, foreign key, nilai status, dan RLS sebelum memilih provider tersebut.
-
-Checklist manual: (1) dengan `google-sheets`, muat sesi lama, buat sesi tim, pilih dan koreksi pemenang sampai final, lalu tambah pemain pada sesi individual; (2) isi URL/anon key dan pilih `supabase`, buat kompetisi tim dengan minimal empat pemain, muat ulang, periksa anggota dan bracket, catat/koreksi pemenang dan pastikan juara tampil; (3) coba key/RLS salah dan pastikan pesan error tampil tanpa beralih provider.
-
-## URL aplikasi
-Router client-side didefinisikan di `js/router.js` dengan engine HistoryPP lokal (`js/libs/historypp/src/1.0.5`). Refresh pada path ini akan mengirim `index.html`, lalu router memilih tampilan berdasarkan path:
-
-- `/` atau `/competitions` — Dashboard dan daftar kompetisi.
-- `/competitions/<session-id>` — Detail kompetisi, membuka bracket.
-- `/bracket` — Membuka kompetisi terakhir yang dipilih, atau kompetisi pertama jika belum ada pilihan. `/bracket/<session-id>` membuka bracket kompetisi tersebut.
-- `/participants` — Mengikuti aturan pemilihan yang sama; `/participants/<session-id>` membuka peserta kompetisi tersebut.
-- `/matches` — Mengikuti aturan pemilihan yang sama; `/matches/<session-id>` membuka daftar pertandingan kompetisi tersebut.
-
-Path lama `/?session_id=<id>` tetap diarahkan ke `/bracket/<id>`.
-
-Endpoint lokal:
-- `GET /api/health` — cek server lokal.
-- `GET /api/sessions` — daftar sesi.
-- `GET /api/session?session_id=...` — detail sesi, peserta, dan pertandingan.
-- `POST /api/sessions` — buat sesi dan bracket.
-- `POST /api/participants` — tambah peserta sebelum pertandingan dimulai.
-- `POST /api/matches/score` — simpan skor dan maju-kan pemenang.
-
-Jalankan server dari folder proyek:
-
-```bash
-node server.js
-```
-
-Buka `http://127.0.0.1:3000`. Node.js 18+ diperlukan karena proxy memakai `fetch` bawaan.
-
-## Yang sudah bisa dicoba
-- Memuat daftar sesi kompetisi saat halaman dibuka.
-- Membuat sesi tim baru: pemain diacak dengan Fisher–Yates sebelum sesi dibuat. Pasangan tersimpan sebagai baris peserta/kompetitor yang sudah ada, dengan `participant_id` dari Sheets dipakai sebagai ID tim dan `format` menandai mode tim.
-- Kompetisi lama tetap menggunakan peserta individual dan alur skor numerik yang sudah ada.
-- Melihat bracket, peserta, dan daftar pertandingan dari data tersimpan.
-- Memilih Menang untuk setiap tim; aplikasi mengirim `score1`/`score2` numerik (`1`/`0`) melalui endpoint lama agar backend memperbarui pemenang dan babak berikutnya.
-- Menambah peserta individual pada kompetisi lama sebelum pertandingan dimulai. Komposisi tim baru dikunci setelah bracket dibuat supaya hasil tidak rusak.
-- Membuat Playbook melalui dialog cetak browser, lalu pilih **Save as PDF**.
-
-## Troubleshooting
-- Jika memilih provider Google Sheets dan pemuatan data gagal, pastikan Apps Script sudah di-deploy sebagai Web App dan akses deployment mengizinkan Node.js memanggilnya.
-- Pastikan fungsi `setupSheets()` sudah dijalankan dan Script Property `SPREADSHEET_ID` telah disetel di Apps Script.
-- Periksa **Apps Script → Executions** untuk error yang terjadi di sisi Google.
-- Data tidak lagi menggunakan demo di browser; sesi baru hanya muncul setelah berhasil tersimpan melalui API.
-- Google Fonts membutuhkan koneksi internet; fallback font tersedia.
+`pnpm test` covers bye and completion calculations, pending finals, ongoing competitions, and provider-specific session-status persistence mappings. `pnpm build` verifies the production Vite bundle. The build does not test live Google Sheets, live Supabase credentials/RLS, or a deployed Netlify site; run those service checks with the appropriate deployment credentials.

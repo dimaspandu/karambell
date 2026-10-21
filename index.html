@@ -1,166 +1,18 @@
 <!doctype html>
 <html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183a32">
-  <meta name="description" content="Kelola sesi kompetisi Karambol Gamebell, peserta, bagan, dan skor.">
-  <title>Karambol Gamebell — Kompetisi</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
-</head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="Navigasi utama">
-      <a class="brand" href="/" data-route="home" aria-label="Karambol Gamebell beranda">
-        <span class="brand__icon" aria-hidden="true">●</span>
-        <span class="brand__text">Gamebell<span>Karambol Club</span></span>
-      </a>
-      <nav class="nav">
-        <a class="nav__item nav__item--active" href="/competitions" data-route="competitions"><span>▦</span> Sesi Kompetisi</a>
-        <a class="nav__item" href="/participants" data-route="participants"><span>♟</span> Peserta</a>
-        <a class="nav__item" href="/bracket" data-route="bracket"><span>⌘</span> Bagan Pertandingan</a>
-      </nav>
-      <div class="sidebar__bottom">
-        <div class="connection"><span class="connection__dot"></span><span>Mode demo lokal</span></div>
-        <p>Gamebell · 2026</p>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">KARAMBOL CLUB / 2026</p>
-          <h1 id="page-title">Sesi Kompetisi</h1>
-        </div>
-        <button class="button button--primary" id="create-session-open"><span aria-hidden="true">＋</span> Buat Sesi</button>
-      </header>
-
-      <section class="view view--active" id="sessions-view" aria-labelledby="sessions-heading">
-        <div class="welcome-panel">
-          <div class="welcome-panel__copy">
-            <span class="tag tag--gold">SEASON 2026</span>
-            <h2>Siap mulai pertandingan?</h2>
-            <p>Buat sesi, susun bagan, lalu catat skor sampai juara ditemukan.</p>
-            <button class="button button--cream" id="welcome-create">＋ Buat sesi kompetisi</button>
-          </div>
-          <div class="coin-art" aria-hidden="true">
-            <span class="coin coin--black"></span><span class="coin coin--cream"></span><span class="coin coin--red"></span>
-            <span class="striker"></span>
-          </div>
-          <div class="welcome-panel__pattern" aria-hidden="true">✳</div>
-        </div>
-
-        <div class="section-heading">
-          <div><h2 id="sessions-heading">Kompetisi kamu</h2><p>Pilih sesi untuk melihat dan memperbarui progres.</p></div>
-          <span class="count-pill" id="session-count">1 sesi</span>
-        </div>
-        <div class="session-grid" id="session-list"></div>
-      </section>
-
-      <section class="view" id="detail-view" aria-labelledby="detail-title">
-        <div class="detail-heading">
-          <button class="back-link" id="back-to-sessions">← Semua sesi</button>
-          <div class="detail-heading__main">
-            <div class="session-emblem" aria-hidden="true">✦</div>
-            <div class="detail-heading__copy">
-              <div class="inline-tags"><span class="tag tag--green" id="detail-status">Berlangsung</span><span class="tag tag--muted" id="detail-format">Single elimination</span></div>
-              <h2 id="detail-title">Karambol Gamebell 2026</h2>
-              <p id="detail-meta">11 peserta · 14 Maret 2026</p>
-            </div>
-            <button class="button button--outline" id="download-playbook">↓ Download Playbook</button>
-          </div>
-        </div>
-
-        <div class="stats-grid" id="stats-grid">
-          <article class="stat-card"><span class="stat-card__icon">♟</span><div><span id="stat-participants-label">Peserta</span><strong id="stat-participants">11</strong></div></article>
-          <article class="stat-card"><span class="stat-card__icon">⌘</span><div><span>Pertandingan</span><strong id="stat-matches">10</strong></div></article>
-          <article class="stat-card"><span class="stat-card__icon">✓</span><div><span>Selesai</span><strong id="stat-completed">0 / 10</strong></div></article>
-          <article class="stat-card"><span class="stat-card__icon">♛</span><div><span>Juara</span><strong id="stat-champion">Belum ada</strong></div></article>
-        </div>
-
-        <div class="tabs" role="tablist" aria-label="Detail kompetisi">
-          <button class="tab tab--active" role="tab" aria-selected="true" data-route="bracket">Bagan</button>
-          <button class="tab" role="tab" aria-selected="false" data-route="participants"><span id="participant-tab-label">Peserta</span> <span id="participant-tab-count">11</span></button>
-          <button class="tab" role="tab" aria-selected="false" data-route="matches">Daftar Pertandingan</button>
-        </div>
-
-        <div class="tab-panel tab-panel--active" id="bracket-panel">
-          <div class="bracket-toolbar">
-            <div><h3>Bagan pertandingan</h3><p id="bracket-help">Tekan kartu pertandingan untuk memasukkan atau memperbarui skor.</p></div>
-            <span class="hint"><span class="hint__dot"></span> Pemenang ditandai hijau</span>
-          </div>
-          <div class="bracket-scroll"><div class="bracket" id="bracket"></div></div>
-          <div class="bracket-footer"><span>✦</span><div><strong>Perjalanan menuju juara</strong><p>Skor disimpan per pertandingan. Pemenang otomatis maju ke babak berikutnya.</p></div></div>
-        </div>
-
-        <div class="tab-panel" id="participants-panel">
-          <div class="panel-heading"><div><h3 id="participant-list-title">Daftar peserta</h3><p id="participant-list-description">Peserta yang terdaftar dalam sesi ini.</p></div><button class="button button--primary button--small" id="add-participant-open">＋ Tambah Peserta</button></div>
-          <p class="form-note" id="team-pairing-locked" hidden>Komposisi tim dikunci setelah bagan dibuat agar hasil pertandingan tetap valid.</p>
-          <div class="participant-list" id="participant-list"></div>
-        </div>
-
-        <div class="tab-panel" id="matches-panel">
-          <div class="panel-heading"><div><h3>Daftar pertandingan</h3><p id="match-list-description">Perbarui skor atau periksa status setiap pertandingan.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Pertandingan</th><th>Babak</th><th id="match-participants-heading">Pemain</th><th id="match-result-heading">Skor</th><th>Status</th><th></th></tr></thead><tbody id="match-table-body"></tbody></table></div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <dialog class="modal" id="create-session-modal">
-    <form id="create-session-form" class="modal__form">
-      <div class="modal__heading"><div><span class="eyebrow">SESI BARU</span><h2>Buat kompetisi</h2></div><button type="button" class="icon-button" data-close="create-session-modal" aria-label="Tutup">×</button></div>
-      <label>Nama kompetisi<input name="name" required maxlength="80" value="" placeholder="Contoh: Karambol Gamebell 2026"></label>
-      <div class="form-row"><label>Tanggal<input name="date" type="date" value="2026-10-19" required></label><label>Format<select name="format"><option value="single_elimination">Tim · Single elimination</option></select></label></div>
-      <label>Lokasi <span class="optional">(opsional)</span><input name="location" maxlength="80" placeholder="Contoh: Gamebell Community"></label>
-      <label>Pemain <span class="optional">(pisahkan dengan koma atau baris baru; setiap pemain hanya sekali)</span><textarea name="participants" rows="5" required>Rahman, Prastio, Athaya, Dimas, Dedi, Azhar, Rizky, Bastian, Bagas, Faisal, Raihan, Pandu</textarea></label>
-      <div class="team-pairing"><div class="team-pairing__header"><p class="form-note" id="pairing-summary" aria-live="polite">Masukkan pemain untuk melihat jumlah tim.</p><button type="button" class="button button--outline button--small" id="generate-teams">Acak Pasangan</button></div><div class="team-pairing__preview" id="team-preview" aria-live="polite"></div></div>
-      <p class="form-note">Jumlah pemain harus genap dan minimal 4. Tim diacak sekali sebelum sesi dibuat; jumlah tim ganjil tetap bisa memakai bye di bagan.</p>
-      <div class="modal__actions"><button type="button" class="button button--outline" data-close="create-session-modal">Batal</button><button type="submit" class="button button--primary" id="create-session-submit" disabled>Buat Sesi</button></div>
-    </form>
-  </dialog>
-
-  <dialog class="modal modal--compact" id="score-modal">
-    <form id="score-form" class="modal__form">
-      <div class="modal__heading"><div><span class="eyebrow" id="score-match-label">PERTANDINGAN M1</span><h2>Update skor</h2></div><button type="button" class="icon-button" data-close="score-modal" aria-label="Tutup">×</button></div>
-      <p class="score-intro" id="score-round-label">Babak awal · Masukkan skor akhir pemain.</p>
-      <input type="hidden" name="matchId">
-      <div class="score-players">
-        <label class="score-player"><span class="score-player__avatar" id="score-avatar-1">R</span><strong id="score-player-1">Rahman</strong><span>Skor</span><input type="number" name="score1" min="0" max="999" required value="0"></label>
-        <span class="score-versus">VS</span>
-        <label class="score-player"><span class="score-player__avatar" id="score-avatar-2">P</span><strong id="score-player-2">Prastio</strong><span>Skor</span><input type="number" name="score2" min="0" max="999" required value="0"></label>
-      </div>
-      <p class="form-note">Untuk menyelesaikan pertandingan, skor harus berbeda. Simpan akan memperbarui bagan.</p>
-      <div class="modal__actions"><button type="button" class="button button--outline" data-close="score-modal">Batal</button><button type="submit" class="button button--primary">Simpan Skor</button></div>
-    </form>
-  </dialog>
-
-  <dialog class="modal modal--compact" id="team-winner-modal">
-    <form id="team-winner-form" class="modal__form">
-      <div class="modal__heading"><div><span class="eyebrow" id="team-winner-match-label">PERTANDINGAN</span><h2>Tentukan pemenang</h2></div><button type="button" class="icon-button" data-close="team-winner-modal" aria-label="Tutup">×</button></div>
-      <p class="score-intro">Pilih tim yang menang pada pertandingan ini.</p>
-      <input type="hidden" id="team-winner-match-id" name="matchId">
-      <div class="team-winner-options" id="team-winner-options"></div>
-      <div class="modal__actions"><button type="button" class="button button--outline" data-close="team-winner-modal">Batal</button><button type="submit" class="button button--primary">Simpan pemenang</button></div>
-    </form>
-  </dialog>
-
-  <dialog class="modal modal--compact" id="participant-modal">
-    <form id="participant-form" class="modal__form">
-      <div class="modal__heading"><div><span class="eyebrow">PESERTA</span><h2>Tambah peserta</h2></div><button type="button" class="icon-button" data-close="participant-modal" aria-label="Tutup">×</button></div>
-      <label>Nama peserta<input name="name" required maxlength="60" placeholder="Nama peserta"></label>
-      <p class="form-note">Peserta hanya bisa ditambahkan sebelum pertandingan dimulai. Bagan akan dibuat ulang otomatis.</p>
-      <div class="modal__actions"><button type="button" class="button button--outline" data-close="participant-modal">Batal</button><button type="submit" class="button button--primary">Tambah</button></div>
-    </form>
-  </dialog>
-
-  <div class="toast" id="toast" popover="manual" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/libs/historypp/src/1.0.5/index.js"></script>
-  <script type="module" src="/js/router.js"></script>
-  <script type="module" src="/js/app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#183a32" />
+    <meta name="description" content="Kelola sesi kompetisi Karambol Gamebell, peserta, bagan, dan skor." />
+    <link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Karambol Gamebell — Kompetisi</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

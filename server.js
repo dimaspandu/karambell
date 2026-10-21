@@ -2,8 +2,8 @@
 "use strict";
 
 /**
- * Tiny static file server for the Karambell UI.
- * Uses Node.js built-ins only; no npm install required.
+ * Local static preview and Google Apps Script API proxy.
+ * The Vite development server proxies /api requests here during development.
  */
 const http = require("node:http");
 const fs = require("node:fs");
@@ -12,7 +12,7 @@ const path = require("node:path");
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "3000", 10);
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwuNExJjIzedJqZhVPz84QSsNLwG4V2thsYTkskGsQsiIKOkYDYCFvgdZy_0nciFGC8bg/exec";
-const ROOT = path.resolve(__dirname);
+const ROOT = path.resolve(__dirname, "dist");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -196,8 +196,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, HOST, () => {
-  console.log(`Karambol Gamebell UI running at http://${HOST}:${PORT}`);
-  console.log("API proxy: /api/sessions, /api/session, /api/participants, /api/matches/score");
+  console.log(`Karambell preview and API proxy running at http://${HOST}:${PORT}`);
+  console.log("API proxy: /api/sessions, /api/sessions/status, /api/session, /api/participants, /api/matches/score");
   console.log("Press Ctrl+C to stop.");
 });
 

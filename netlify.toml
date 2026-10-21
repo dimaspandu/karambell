@@ -1,6 +1,9 @@
 [build]
-  command = "node scripts/build-netlify.mjs"
+  command = "pnpm build"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22.12.0"
 
 [functions]
   directory = "netlify/functions"

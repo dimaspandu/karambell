@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dataConfig } from "../js/data/config.js";
+import { dataConfig } from "../src/config/data.js";
 
 const completeCompetition = {
   session: { session_id: "session-1", status: "in_progress" },
@@ -24,7 +24,7 @@ test("Google Sheets adapter persists the computed status with its session ID", a
   };
 
   try {
-    const { dataService } = await import("../js/data/service.js?google-status-test");
+    const { dataService } = await import("../src/services/dataService.js?google-status-test");
     await dataService.recordScore({ session_id: "session-1", match_id: "final-1", score1: 0, score2: 1 });
     const statusCall = calls.find(call => call.path === "/api/sessions/status");
     assert.deepEqual(statusCall.body, { session_id: "session-1", status: "completed" });
@@ -58,7 +58,7 @@ test("Supabase adapter persists status using the session row ID", async () => {
   };
 
   try {
-    const { dataService } = await import("../js/data/service.js?supabase-status-test");
+    const { dataService } = await import("../src/services/dataService.js?supabase-status-test");
     await dataService.recordWinner({ session_id: "session-1", match_id: "final-1", winner_team_id: "team-2" });
     const statusCall = calls.find(call => call.table === "sessions" && call.method === "PATCH");
     assert.equal(statusCall.url.searchParams.get("id"), "eq.session-1");

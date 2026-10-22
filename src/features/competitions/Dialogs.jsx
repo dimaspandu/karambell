@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { getParticipant, initials, matchRoundName } from "../domain/competitionModel.js";
+import { getParticipant } from "../../domain/competitionModel.js";
+import { createRandomTeamPairing, parseParticipantNames } from "../../domain/teamPairing.js";
+import { initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
+import { clearTeamPairingDraft, readTeamPairingDraft, saveTeamPairingDraft } from "../../shared/persistence/appStorage.js";
 
-const PAIRING_DRAFT_KEY = "karambell:team-pairing-draft";
 
 function Modal({ open, onOpenChange, className = "", children, id }) {
   const ref = useRef(null);
@@ -14,19 +16,7 @@ function Modal({ open, onOpenChange, className = "", children, id }) {
   return <dialog id={id} ref={ref} className={`modal ${className}`} onClose={() => onOpenChange(false)}>{children}</dialog>;
 }
 
-function parseNames(value) {
-  const names = String(value || "").split(/[\n,;]+/).map(name => name.trim()).filter(Boolean);
-  const seen = new Set();
-  const duplicates = [];
-  names.forEach(name => {
-    const key = name.toLocaleLowerCase("id-ID");
-    if (seen.has(key)) duplicates.push(name);
-    else seen.add(key);
-  });
-  return { names, duplicates };
-}
-
-export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }) {
+export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, error, onErrorClear }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState("2026-10-19");
   const [location, setLocation] = useState("");
@@ -35,7 +25,7 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }
 
   useEffect(() => {
     try {
-      const draft = JSON.parse(window.localStorage.getItem(PAIRING_DRAFT_KEY) || "null");
+      const draft = readTeamPairingDraft();
       if (!draft || !Array.isArray(draft.participants) || !Array.isArray(draft.teams)) return;
       const members = draft.teams.flatMap(team => Array.isArray(team.members) ? team.members : []);
       const expected = draft.participants.map(value => String(value).toLocaleLowerCase("id-ID")).sort();
@@ -46,7 +36,7 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }
     } catch { /* The draft is optional. */ }
   }, []);
 
-  const { names, duplicates } = parseNames(participantsInput);
+  const { names, duplicates } = parseParticipantNames(participantsInput);
   const validCount = names.length >= 4 && names.length % 2 === 0;
   const previewNames = teams?.flatMap(team => team.members).map(value => value.toLocaleLowerCase("id-ID")).sort() || [];
   const inputNames = names.map(value => value.toLocaleLowerCase("id-ID")).sort();
@@ -54,18 +44,15 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }
   const updateParticipants = value => {
     setParticipantsInput(value);
     setTeams(null);
-    try { window.localStorage.removeItem(PAIRING_DRAFT_KEY); } catch { /* Ignore unavailable storage. */ }
+    onErrorClear?.();
+    clearTeamPairingDraft();
   };
   const generateTeams = () => {
     if (!validCount || duplicates.length) return;
-    const shuffled = [...names];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-      const target = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
-    }
-    const next = Array.from({ length: shuffled.length / 2 }, (_, index) => ({ members: shuffled.slice(index * 2, index * 2 + 2) }));
+    onErrorClear?.();
+    const next = createRandomTeamPairing(names);
     setTeams(next);
-    try { window.localStorage.setItem(PAIRING_DRAFT_KEY, JSON.stringify({ participants: names, teams: next })); } catch { /* Pairing still works for this session. */ }
+    saveTeamPairingDraft({ participants: names, teams: next });
   };
   const submit = async event => {
     event.preventDefault();
@@ -74,7 +61,7 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }
     const success = await onSubmit({ name: String(form.get("name") || "").trim(), event_date: String(form.get("date") || ""), location: String(form.get("location") || "").trim(), format: String(form.get("format") || "single_elimination"), isTeamCompetition: true, participants: teams.map(team => team.members.join(" & ")) });
     if (success) {
       setTeams(null);
-      try { window.localStorage.removeItem(PAIRING_DRAFT_KEY); } catch { /* Ignore unavailable storage. */ }
+      clearTeamPairingDraft();
     }
   };
 
@@ -86,14 +73,15 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving }
   return <Modal id="create-session-modal" open={open} onOpenChange={onOpenChange}>
     <form className="modal__form" onSubmit={submit}>
       <div className="modal__heading"><div><span className="eyebrow">SESI BARU</span><h2>Buat kompetisi</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
-      <label>Nama kompetisi<input name="name" required maxLength="80" value={name} onChange={event => setName(event.target.value)} placeholder="Contoh: Karambol Gamebell 2026"/></label>
-      <div className="form-row"><label>Tanggal<input name="date" type="date" value={date} onChange={event => setDate(event.target.value)} required/></label><label>Format<select name="format" defaultValue="single_elimination"><option value="single_elimination">Tim · Single elimination</option></select></label></div>
-      <label>Lokasi <span className="optional">(opsional)</span><input name="location" maxLength="80" value={location} onChange={event => setLocation(event.target.value)} placeholder="Contoh: Gamebell Community"/></label>
+      <label>Nama kompetisi<input name="name" required maxLength="80" value={name} onChange={event => { setName(event.target.value); onErrorClear?.(); }} placeholder="Contoh: Karambol Gamebell 2026"/></label>
+      <div className="form-row"><label>Tanggal<input name="date" type="date" value={date} onChange={event => { setDate(event.target.value); onErrorClear?.(); }} required/></label><label>Format<select name="format" value="single_elimination" onChange={() => onErrorClear?.()}><option value="single_elimination">Tim · Single elimination</option></select></label></div>
+      <label>Lokasi <span className="optional">(opsional)</span><input name="location" maxLength="80" value={location} onChange={event => { setLocation(event.target.value); onErrorClear?.(); }} placeholder="Contoh: Gamebell Community"/></label>
       <label>Pemain <span className="optional">(pisahkan dengan koma atau baris baru; setiap pemain hanya sekali)</span><textarea name="participants" rows="5" value={participantsInput} onChange={event => updateParticipants(event.target.value)} required/></label>
       <div className="team-pairing"><div className="team-pairing__header"><p className="form-note" aria-live="polite">{pairingMessage}</p><button type="button" className="button button--outline button--small" disabled={!validCount || duplicates.length > 0} onClick={generateTeams}>Acak Pasangan</button></div>
         <div className="team-pairing__preview" aria-live="polite">{teams?.map((team, index) => <div className="team-preview__item" key={index}><span>Tim {String(index + 1).padStart(2, "0")}</span><strong>{team.members[0]} &amp; {team.members[1]}</strong></div>)}</div>
       </div>
       <p className="form-note">Jumlah pemain harus genap dan minimal 4. Tim diacak sekali sebelum sesi dibuat; jumlah tim ganjil tetap bisa memakai bye di bagan.</p>
+      {error && <p className="form-note form-note--error" role="alert">{error}</p>}
       <div className="modal__actions"><button type="button" className="button button--outline" onClick={() => onOpenChange(false)}>Batal</button><button type="submit" className="button button--primary" disabled={!previewMatches || duplicates.length > 0 || saving}>{saving ? "Menyimpan…" : "Buat Sesi"}</button></div>
     </form>
   </Modal>;
@@ -123,7 +111,15 @@ export function TeamWinnerDialog({ open, onOpenChange, competition, match, onSub
   const second = match && getParticipant(competition, match.participant2Id);
   useEffect(() => setWinnerId(match?.winnerId || ""), [match?.id, match?.winnerId]);
   return <Modal id="team-winner-modal" className="modal--compact" open={open} onOpenChange={onOpenChange}>
-    {match && first && second && <form className="modal__form" onSubmit={event => { event.preventDefault(); onSubmit(match.id, winnerId); }}>
+    {match && first && second && <form className="modal__form" onSubmit={event => {
+      event.preventDefault();
+      if (match.winnerId && winnerId !== match.winnerId) {
+        const previousWinner = getParticipant(competition, match.winnerId)?.name || "tim sebelumnya";
+        const nextWinner = getParticipant(competition, winnerId)?.name || "tim yang dipilih";
+        if (!window.confirm(`Hasil sudah tercatat: ${previousWinner} menang. Ganti hasil menjadi ${nextWinner} menang? Hasil babak berikutnya yang bergantung pada pertandingan ini juga dapat berubah.`)) return;
+      }
+      onSubmit(match.id, winnerId);
+    }}>
       <div className="modal__heading"><div><span className="eyebrow">{match.id} · {matchRoundName(match.round, competition.totalRounds)}</span><h2>Tentukan pemenang</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
       <p className="score-intro">Pilih tim yang menang pada pertandingan ini.</p>
       <div className="team-winner-options">{[first, second].map(team => <label className={`team-winner-option ${winnerId === team.id ? "team-winner-option--selected" : ""}`} key={team.id}>
@@ -135,13 +131,14 @@ export function TeamWinnerDialog({ open, onOpenChange, competition, match, onSub
   </Modal>;
 }
 
-export function ParticipantDialog({ open, onOpenChange, onSubmit, saving }) {
+export function ParticipantDialog({ open, onOpenChange, onSubmit, saving, error, onErrorClear }) {
   const [name, setName] = useState("");
   return <Modal id="participant-modal" className="modal--compact" open={open} onOpenChange={onOpenChange}>
     <form className="modal__form" onSubmit={async event => { event.preventDefault(); const success = await onSubmit(name.trim()); if (success) setName(""); }}>
       <div className="modal__heading"><div><span className="eyebrow">PESERTA</span><h2>Tambah peserta</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
-      <label>Nama peserta<input value={name} onChange={event => setName(event.target.value)} required maxLength="60" placeholder="Nama peserta"/></label>
-      <p className="form-note">Peserta hanya bisa ditambahkan sebelum pertandingan dimulai. Bagan akan dibuat ulang otomatis.</p>
+      <label>Nama peserta<input value={name} onChange={event => { setName(event.target.value); onErrorClear?.(); }} required maxLength="60" placeholder="Nama peserta"/></label>
+      <p className="form-note">Peserta hanya bisa ditambahkan sebelum pertandingan dimulai.</p>
+      {error && <p className="form-note form-note--error" role="alert">{error}</p>}
       <div className="modal__actions"><button type="button" className="button button--outline" onClick={() => onOpenChange(false)}>Batal</button><button type="submit" className="button button--primary" disabled={saving}>{saving ? "Menyimpan…" : "Tambah"}</button></div>
     </form>
   </Modal>;

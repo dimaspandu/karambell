@@ -415,6 +415,8 @@ function updateMatchScore_(input) {
     );
   }
 
+  validateDownstream_(matches, matchId);
+
   const winnerId = score1 > score2
     ? match.participant1_id
     : match.participant2_id;
@@ -444,24 +446,25 @@ function updateMatchScore_(input) {
       return item.match_id === match.next_match_id;
     });
 
-    if (nextMatch) {
-      const patch = {
-        updated_at: now,
-      };
-
-      if (match.next_slot === 'participant1') {
-        patch.participant1_id = winnerId;
-      } else if (match.next_slot === 'participant2') {
-        patch.participant2_id = winnerId;
-      }
-
-      updateObject_(
-        SHEETS.MATCHES,
-        'match_id',
-        nextMatch.match_id,
-        patch
-      );
+    if (!nextMatch) {
+      throw new Error('Next match not found in this session.');
     }
+
+    const patch = { updated_at: now };
+    if (match.next_slot === 'participant1') {
+      patch.participant1_id = winnerId;
+    } else if (match.next_slot === 'participant2') {
+      patch.participant2_id = winnerId;
+    } else {
+      throw new Error('Next-match slot must be participant1 or participant2.');
+    }
+
+    updateObject_(
+      SHEETS.MATCHES,
+      'match_id',
+      nextMatch.match_id,
+      patch
+    );
   }
 
   // Periksa apakah pertandingan final sudah selesai.
@@ -570,6 +573,37 @@ function clearDownstream_(matches, matchId, timestamp) {
     next.match_id,
     timestamp
   );
+}
+
+/** Validate every dependent match edge before the first spreadsheet write. */
+function validateDownstream_(matches, matchId) {
+  const byId = {};
+  matches.forEach(function(match) {
+    byId[match.match_id] = match;
+  });
+
+  const visited = {};
+  visited[matchId] = true;
+  let source = byId[matchId];
+
+  while (source && source.next_match_id) {
+    if (source.next_slot !== 'participant1' && source.next_slot !== 'participant2') {
+      throw new Error('Next-match slot must be participant1 or participant2.');
+    }
+
+    const nextId = String(source.next_match_id);
+    if (visited[nextId]) {
+      throw new Error('Bracket contains a cycle in next-match references.');
+    }
+
+    const next = byId[nextId];
+    if (!next) {
+      throw new Error('Next match not found in this session.');
+    }
+
+    visited[nextId] = true;
+    source = next;
+  }
 }
 
 /**

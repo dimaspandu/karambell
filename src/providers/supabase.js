@@ -1,4 +1,6 @@
 import { getCompetitionProgress } from "../domain/competitionProgress.js";
+import { getDownstreamMatchPath, validateMatchScore, validateMatchWinner } from "../domain/matchRules.js";
+import { validateParticipantAddition } from "../domain/participantValidation.js";
 
 export function createSupabaseProvider({ url, key }) {
   if (!url || !key) throw new Error("Provider Supabase dipilih, tetapi supabaseUrl atau supabaseAnonKey belum diatur di src/config/data.js.");
@@ -116,34 +118,121 @@ export function createSupabaseProvider({ url, key }) {
     return failures;
   }
 
-  async function updateWinner({ session_id, match_id, winner_team_id, score1, score2 }) {
+  async function applyMatchResult({ session_id, match_id, winner_team_id, score1, score2 }) {
     const all = await query("matches", { select: "*", session_id: byId(session_id), order: "round.asc,match_number.asc" });
     const current = all.find(item => String(item.id) === String(match_id));
     if (!current) throw new Error("Pertandingan tidak ditemukan.");
-    const winner = winner_team_id || (Number(score1) > Number(score2) ? current.team1_id : current.team2_id);
-    if (![current.team1_id, current.team2_id].some(id => String(id) === String(winner))) throw new Error("Tim pemenang tidak bertanding pada pertandingan ini.");
-    await query("matches", { id: byId(match_id) }, { method: "PATCH", body: { winner_team_id: winner, status: "completed" } });
-    let source = current;
-    let advancing = winner;
-    while (source.next_match_id) {
-      const target = all.find(item => String(item.id) === String(source.next_match_id));
-      if (!target) break;
-      const slot = Number(source.next_slot) === 1 ? "team1_id" : "team2_id";
-      const patch = { [slot]: advancing };
-      if (target.winner_team_id && ![target.team1_id, target.team2_id].some(id => String(id) === String(target.winner_team_id))) {
-        patch.winner_team_id = null;
-        patch.status = "pending";
+    if (current.status === "bye") throw new Error("Pertandingan bye tidak dapat diubah.");
+    const participant1Id = current.team1_id || current.participant1_id;
+    const participant2Id = current.team2_id || current.participant2_id;
+    if (!participant1Id || !participant2Id) throw new Error("Kedua peserta harus ditetapkan sebelum hasil dicatat.");
+
+    let winner = winner_team_id;
+    const includesScore = score1 !== undefined || score2 !== undefined;
+    if (includesScore) {
+      const validation = validateMatchScore({
+        competition: { id: session_id, matches: [{ ...current, id: current.id, participant1Id, participant2Id }] },
+        matchId: current.id,
+        score1: Number(score1),
+        score2: Number(score2)
+      });
+      if (!validation.valid) {
+        const error = new Error(validation.error);
+        error.code = "MATCH_VALIDATION";
+        throw error;
       }
-      await query("matches", { id: byId(target.id) }, { method: "PATCH", body: patch });
-      source = (await query("matches", { id: byId(target.id), select: "*" }))[0];
-      if (source.winner_team_id && [source.team1_id, source.team2_id].some(id => String(id) === String(source.winner_team_id))) advancing = source.winner_team_id;
-      else break;
+      winner = validation.winnerId;
+    } else {
+      const validation = validateMatchWinner({
+        competition: { id: session_id, matches: [{ ...current, id: current.id, participant1Id, participant2Id }] },
+        matchId: current.id,
+        winnerId: winner_team_id
+      });
+      if (!validation.valid) {
+        const error = new Error(validation.error);
+        error.code = "MATCH_VALIDATION";
+        throw error;
+      }
+      winner = validation.winnerId;
     }
-    const competition = await getCompetition(session_id);
+
+    const downstream = getDownstreamMatchPath({ matches: all }, match_id);
+    const patchMatch = async (id, patch) => {
+      try {
+        await query("matches", { id: byId(id) }, { method: "PATCH", body: patch });
+      } catch (cause) {
+        const error = new Error("Match mutation may have been only partially saved.", { cause });
+        error.code = "PARTIAL_MATCH_MUTATION";
+        throw error;
+      }
+    };
+
+    // Invalidate dependent results before recording the replacement result,
+    // matching the Apps Script provider's downstream reset behavior.
+    for (const step of downstream) {
+      const slotColumn = step.slot === "participant1" ? "team1_id" : "team2_id";
+      await patchMatch(step.matchId, {
+        [slotColumn]: null,
+        winner_team_id: null,
+        score1: null,
+        score2: null,
+        status: "pending"
+      });
+    }
+
+    const currentPatch = { winner_team_id: winner, status: "completed" };
+    if (includesScore) {
+      currentPatch.score1 = Number(score1);
+      currentPatch.score2 = Number(score2);
+    }
+    await patchMatch(match_id, currentPatch);
+
+    if (downstream.length) {
+      const slotColumn = downstream[0].slot === "participant1" ? "team1_id" : "team2_id";
+      await patchMatch(downstream[0].matchId, { [slotColumn]: winner });
+    }
+
+    let competition;
+    try {
+      competition = await getCompetition(session_id);
+    } catch (cause) {
+      const error = new Error("Match result was saved but competition refresh failed.", { cause });
+      error.code = "MATCH_REFRESH_FAILED";
+      throw error;
+    }
     const { status } = getCompetitionProgress(competition.matches);
-    const savedSessions = await query("sessions", { id: byId(session_id) }, { method: "PATCH", body: { status } });
-    if (!savedSessions.some(session => String(session.id) === String(session_id) && session.status === status)) throw new Error("Status kompetisi belum tersimpan.");
-    return getCompetition(session_id);
+    let savedSessions;
+    try {
+      savedSessions = await query("sessions", { id: byId(session_id) }, { method: "PATCH", body: { status } });
+    } catch (cause) {
+      const error = new Error("Match mutation was saved but session status may be inconsistent.", { cause });
+      error.code = "PARTIAL_MATCH_MUTATION";
+      throw error;
+    }
+    if (!savedSessions.some(session => String(session.id) === String(session_id) && session.status === status)) {
+      const error = new Error("Session status was not confirmed after match mutation.");
+      error.code = "PARTIAL_MATCH_MUTATION";
+      throw error;
+    }
+    try {
+      return await getCompetition(session_id);
+    } catch (cause) {
+      const error = new Error("Match result was saved but competition refresh failed.", { cause });
+      error.code = "MATCH_REFRESH_FAILED";
+      throw error;
+    }
+  }
+
+  async function updateWinner({ session_id, match_id, winner_team_id, score1, score2 }) {
+    return applyMatchResult({ session_id, match_id, winner_team_id, score1, score2 });
+  }
+
+  async function recordMatchScore({ sessionId, matchId, score1, score2 }) {
+    return applyMatchResult({ session_id: sessionId, match_id: matchId, score1, score2 });
+  }
+
+  async function recordMatchWinner({ sessionId, matchId, winnerId }) {
+    return applyMatchResult({ session_id: sessionId, match_id: matchId, winner_team_id: winnerId });
   }
 
   return {
@@ -152,8 +241,14 @@ export function createSupabaseProvider({ url, key }) {
       return listLeaderboardCompetitions();
     },
     getCompetition,
+    recordMatchScore,
+    recordMatchWinner,
     async createCompetition(input) {
-      if (input.format !== "single_elimination") throw new Error("Format kompetisi tidak valid. Format yang didukung adalah single_elimination.");
+      if (input.format !== "single_elimination") {
+        const error = new Error("Format kompetisi tidak valid. Format yang didukung adalah single_elimination.");
+        error.code = "COMPETITION_VALIDATION";
+        throw error;
+      }
       const names = input.participants || [];
       const playerNames = names.flatMap(name => String(name).split(" & ").map(member => member.trim()));
       const normalizedNames = playerNames.map(name => name.toLocaleLowerCase("id-ID"));
@@ -177,18 +272,39 @@ export function createSupabaseProvider({ url, key }) {
         await persistBracket(inserted.id, teamRows);
         return await getCompetition(inserted.id);
       } catch (error) {
-        if (error.code === "23514" && (error.constraint === "sessions_format_check" || error.message.includes("sessions_format_check"))) throw new Error("Format kompetisi ditolak database. Format yang didukung adalah single_elimination.");
+        if (error.code === "23514" && (error.constraint === "sessions_format_check" || error.message.includes("sessions_format_check"))) {
+          const validationError = new Error("Format kompetisi ditolak database. Format yang didukung adalah single_elimination.", { cause: error });
+          validationError.code = "COMPETITION_VALIDATION";
+          throw validationError;
+        }
         if (inserted?.id) {
           const cleanupFailures = await cleanupCompetition(inserted.id);
-          if (cleanupFailures.length) console.error("Pembersihan kompetisi yang gagal sebagian juga gagal.", cleanupFailures);
+          if (cleanupFailures.length) {
+            error.code = "COMPETITION_CLEANUP_FAILED";
+            error.cleanupFailures = cleanupFailures.map(failure => ({ message: failure.message, code: failure.code }));
+            console.error("Pembersihan kompetisi yang gagal sebagian juga gagal.", cleanupFailures);
+          }
         }
         console.error("Gagal membuat kompetisi melalui Supabase.", error);
         throw error;
       }
     },
     async addPlayer({ session_id, name }) {
-      await query("players", {}, { method: "POST", body: { session_id, name } });
-      return getCompetition(session_id);
+      const current = await getCompetition(session_id);
+      const validation = validateParticipantAddition({ competition: current, name });
+      if (!validation.valid) {
+        const error = new Error(validation.error);
+        error.code = "PARTICIPANT_VALIDATION";
+        throw error;
+      }
+      await query("players", {}, { method: "POST", body: { session_id, name: validation.name } });
+      try {
+        return await getCompetition(session_id);
+      } catch (cause) {
+        const error = new Error("Peserta tersimpan, tetapi data kompetisi gagal dimuat ulang.", { cause });
+        error.code = "PARTICIPANT_REFRESH_FAILED";
+        throw error;
+      }
     },
     recordWinner: updateWinner,
     recordScore: updateWinner

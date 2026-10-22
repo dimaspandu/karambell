@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { getCompetitionProgress } from "../domain/competitionProgress.js";
-import { getParticipant, initials, matchRoundName } from "../domain/competitionModel.js";
+import { getCompetitionProgress } from "../../domain/competitionProgress.js";
+import { getParticipant } from "../../domain/competitionModel.js";
+import { initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 
 function competitorInitials(competition, participant) {
   return !participant ? "" : competition.isTeamCompetition ? participant.name.split(" & ").map(initials).join("&") : initials(participant.name);

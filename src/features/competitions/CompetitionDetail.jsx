@@ -1,5 +1,6 @@
-import { getCompetitionProgress } from "../domain/competitionProgress.js";
-import { formatDate, getParticipant, initials, matchRoundName } from "../domain/competitionModel.js";
+import { getCompetitionProgress } from "../../domain/competitionProgress.js";
+import { getParticipant } from "../../domain/competitionModel.js";
+import { formatDate, initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 import { Bracket } from "./Bracket.jsx";
 
 function competitorInitials(competition, participant) {

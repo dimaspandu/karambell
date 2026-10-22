@@ -107,8 +107,7 @@ export default function App() {
     <main className="main">
       <header className="topbar"><div><p className="eyebrow">KARAMBOL CLUB / 2026</p><h1>{pageTitle}</h1></div><button className="button button--primary" onClick={() => setCreateOpen(true)}>＋ Buat Sesi</button></header>
       <section className={`view ${!leaderboardPage && !activeSession ? "view--active" : ""}`} aria-labelledby="sessions-heading">
-        <SessionList sessions={sessions} loading={competitionList.loading} error={competitionList.status === "error"} onOpen={id => navigate("competition-detail", { sessionId: id })} onCreate={() => setCreateOpen(true)}/>
-        {competitionList.loadError && <button className="button button--outline" onClick={competitionList.retry}>Coba muat ulang</button>}
+        <SessionList sessions={sessions} loading={competitionList.loading} error={competitionList.status === "error"} onOpen={id => navigate("competition-detail", { sessionId: id })} onCreate={() => setCreateOpen(true)} onRetry={competitionList.retry}/>
       </section>
       <section className={`view ${!leaderboardPage && activeSession ? "view--active" : ""}`} aria-label="Detail kompetisi">
         <CompetitionWorkspace competition={activeSession} activeTab={activeTab} loading={competitionDetail.status === "loading"} repository={competitionRepository} upsertCompetition={competitionList.upsertCompetition} retry={competitionList.retry} navigate={navigate} showToast={showToast}/>

@@ -2,7 +2,7 @@ import { getCompetitionProgress } from "../../domain/competitionProgress.js";
 import { getParticipant } from "../../domain/competitionModel.js";
 import { formatDate } from "../../shared/presentation/competitionFormatters.js";
 
-export function SessionList({ sessions, loading, error = false, onOpen, onCreate }) {
+export function SessionList({ sessions, loading, error = false, onOpen, onCreate, onRetry }) {
   return <>
     <section className="welcome-panel">
       <div className="welcome-panel__copy">
@@ -18,11 +18,14 @@ export function SessionList({ sessions, loading, error = false, onOpen, onCreate
       <div><h2 id="sessions-heading">Kompetisi kamu</h2><p>Pilih sesi untuk melihat dan memperbarui progres.</p></div>
       <span className="count-pill">{sessions.length} sesi</span>
     </div>
-    {!sessions.length ? <div className="empty-state">
-      <h3>{loading ? "Menghubungkan ke layanan data…" : error ? "Gagal memuat sesi kompetisi" : "Belum ada sesi kompetisi"}</h3>
-      <p>{loading ? "Mengambil data sesi yang tersimpan." : error ? "Data sesi tidak tersedia saat ini. Coba muat ulang." : "Buat sesi pertamamu untuk mulai menyusun bagan."}</p>
+    {!sessions.length ? <section className={`empty-state ${error ? "empty-state--error" : ""}`} role={error ? "alert" : undefined}>
+      <div className="empty-state__content">
+        <h3>{loading ? "Menghubungkan ke layanan data…" : error ? "Gagal memuat sesi kompetisi" : "Belum ada sesi kompetisi"}</h3>
+        <p>{loading ? "Mengambil data sesi yang tersimpan." : error ? "Data sesi tidak tersedia saat ini. Coba muat ulang." : "Buat sesi pertamamu untuk mulai menyusun bagan."}</p>
+      </div>
+      {error && <button type="button" className="button button--outline" onClick={onRetry}>Coba muat ulang</button>}
       {!loading && !error && <button className="button button--primary" onClick={onCreate}>＋ Buat Sesi</button>}
-    </div> : <div className="session-grid">{sessions.map(session => {
+    </section> : <><div className="session-grid">{sessions.map(session => {
       const progress = getCompetitionProgress(session.matches);
       const champion = progress.championId ? getParticipant(session, progress.championId)?.name : null;
       const count = session.isTeamCompetition ? `${session.participants.length} tim` : `${session.participants.length} peserta`;
@@ -34,6 +37,12 @@ export function SessionList({ sessions, loading, error = false, onOpen, onCreate
         <div className="progress" aria-label={`Progres ${progress.progress}%`}><span style={{ width: `${progress.progress}%` }}/></div>
         <div className="session-card__bottom"><span>{progress.completedMatches} dari {progress.totalMatches} pertandingan selesai</span><span>{champion ? `Juara: ${champion}` : `${progress.progress}%`}</span></div>
       </button>;
-    })}</div>}
+    })}</div>{error && <section className="empty-state empty-state--error" role="alert">
+      <div className="empty-state__content">
+        <h3>Gagal memuat sesi kompetisi</h3>
+        <p>Data sesi terbaru tidak tersedia. Menampilkan data yang sudah dimuat sebelumnya.</p>
+      </div>
+      <button type="button" className="button button--outline" onClick={onRetry}>Coba muat ulang</button>
+    </section>}</>}
   </>;
 }

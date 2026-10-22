@@ -85,7 +85,10 @@ p { color: var(--ink-soft); }
 .session-card__bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 13px; border-top: 1px dashed #e1e4d9; font-size: 11px; color: #65766a; }
 .progress { height: 6px; margin-top: 12px; overflow: hidden; border-radius: 99px; background: #e8ece4; }
 .progress span { display: block; height: 100%; background: #4d986d; border-radius: inherit; }
-.empty-state { padding: 34px; border: 1px dashed #ccd6ca; border-radius: 14px; text-align: center; color: var(--ink-soft); grid-column: 1/-1; }
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: clamp(24px, 4vw, 34px); border: 1px dashed #ccd6ca; border-radius: 14px; text-align: center; color: var(--ink-soft); grid-column: 1/-1; }
+.empty-state__content { max-width: 560px; }
+.empty-state__content h3 { margin-bottom: 6px; }
+.empty-state__content p { margin-bottom: 0; line-height: 1.6; }
 .detail-heading { margin-bottom: 19px; }
 .back-link { border: 0; background: transparent; color: var(--green-700); font-weight: 900; padding: 0; margin-bottom: 14px; }
 .detail-heading__main { display: flex; align-items: center; gap: 15px; }

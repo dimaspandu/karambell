@@ -110,3 +110,29 @@ test("Google Sheets list retrieval rejects failed session detail requests", asyn
     globalThis.fetch = previousFetch;
   }
 });
+
+test("Google Sheets list maps a valid empty response and rejects malformed session rows", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { sessions: [] } }), { status: 200 });
+    assert.deepEqual(await googleSheetsProvider.listCompetitions(), []);
+
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { sessions: [{ name: "Missing ID" }] } }), { status: 200 });
+    await assert.rejects(googleSheetsProvider.listCompetitions(), /ada sesi tanpa session_id/);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("Google Sheets request failures retain useful transport and API errors", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => { throw new TypeError("network down"); };
+    await assert.rejects(googleSheetsProvider.listCompetitions(), /Tidak dapat menghubungi API Google Sheets/);
+
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, error: "Proxy unavailable." }), { status: 502 });
+    await assert.rejects(googleSheetsProvider.listCompetitions(), /Proxy unavailable/);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

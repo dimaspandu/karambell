@@ -1,5 +1,14 @@
 export const initialCompetitionListState = { status: "loading", competitions: [], error: null, requestId: 0 };
 
+export async function loadCompetitionList({ repository, dispatch, requestId, isActive = () => true }) {
+  try {
+    const competitions = await repository.listCompetitions();
+    if (isActive()) dispatch({ type: "load-success", requestId, competitions });
+  } catch (error) {
+    if (isActive()) dispatch({ type: "load-error", requestId, error });
+  }
+}
+
 export function competitionListStateReducer(state, action) {
   if (action.type === "load-start") return { ...state, status: "loading", error: null, requestId: action.requestId };
   if (action.requestId !== state.requestId) return state;

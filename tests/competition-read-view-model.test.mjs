@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { competitionListStateReducer, initialCompetitionListState } from "../src/features/competitions/competitionListViewModel.js";
+import { competitionListStateReducer, initialCompetitionListState, loadCompetitionList } from "../src/features/competitions/competitionListViewModel.js";
 import { competitionDetailStateReducer, initialCompetitionDetailState, selectCompetitionDetail } from "../src/features/competitions/competitionDetailViewModel.js";
 
 const first = { id: "one", name: "One" };
@@ -15,6 +15,30 @@ test("list ViewModel state covers loading, success, error, retry and stale respo
   const current = competitionListStateReducer(state, { type: "load-success", requestId: 1, competitions: [first] });
   assert.equal(current, state);
   state = competitionListStateReducer(state, { type: "load-success", requestId: 2, competitions: [first] });
+  assert.equal(state.status, "success");
+  assert.deepEqual(state.competitions, [first]);
+});
+
+test("list loading exits loading on failure and a fresh retry can recover", async () => {
+  let state = initialCompetitionListState;
+  let attempts = 0;
+  const dispatch = action => { state = competitionListStateReducer(state, action); };
+  const repository = {
+    async listCompetitions() {
+      attempts += 1;
+      if (attempts === 1) throw new Error("Sheets unavailable");
+      return [first];
+    }
+  };
+
+  dispatch({ type: "load-start", requestId: 1 });
+  await loadCompetitionList({ repository, dispatch, requestId: 1 });
+  assert.equal(state.status, "error");
+  assert.equal(state.error.message, "Sheets unavailable");
+
+  dispatch({ type: "load-start", requestId: 2 });
+  await loadCompetitionList({ repository, dispatch, requestId: 2 });
+  assert.equal(attempts, 2);
   assert.equal(state.status, "success");
   assert.deepEqual(state.competitions, [first]);
 });

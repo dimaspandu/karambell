@@ -1,11 +1,28 @@
 import { getCompetitionProgress } from "../domain/competitionProgress.js";
 
 async function request(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  } catch (cause) {
+    throw new Error(`Tidak dapat menghubungi API Google Sheets melalui ${path}. Pastikan proxy API lokal atau deployment tersedia.`, { cause });
+  }
   let payload;
-  try { payload = await response.json(); } catch { throw new Error(`Respons server tidak valid (HTTP ${response.status}).`); }
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || `Request gagal (HTTP ${response.status}).`);
+  try { payload = await response.json(); } catch (cause) {
+    throw new Error(`API Google Sheets mengembalikan respons non-JSON (HTTP ${response.status}) pada ${path}.`, { cause });
+  }
+  if (!response.ok || payload?.ok === false) throw new Error(payload?.error || `Request Google Sheets gagal (HTTP ${response.status}) pada ${path}.`);
   return payload.data;
+}
+
+function sessionRows(result) {
+  if (!Array.isArray(result?.sessions)) {
+    throw new Error("Respons daftar sesi Google Sheets tidak valid: field sessions harus berupa array.");
+  }
+  if (result.sessions.some(row => !row || !String(row.session_id || "").trim())) {
+    throw new Error("Respons daftar sesi Google Sheets tidak valid: ada sesi tanpa session_id.");
+  }
+  return result.sessions;
 }
 
 async function getCompetition(id) {
@@ -62,12 +79,12 @@ async function createCompetition(input) {
 export const googleSheetsProvider = {
   async listLeaderboardCompetitions() {
     const result = await request("/api/sessions");
-    const rows = Array.isArray(result.sessions) ? result.sessions : [];
+    const rows = sessionRows(result);
     return Promise.all(rows.map(row => getCompetition(row.session_id)));
   },
   async listCompetitions() {
     const result = await request("/api/sessions");
-    const rows = Array.isArray(result.sessions) ? result.sessions : [];
+    const rows = sessionRows(result);
     return Promise.all(rows.map(row => getCompetition(row.session_id)));
   },
   getCompetition,

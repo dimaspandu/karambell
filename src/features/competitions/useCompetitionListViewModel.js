@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { competitionListStateReducer, initialCompetitionListState } from "./competitionListViewModel.js";
+import { competitionListStateReducer, initialCompetitionListState, loadCompetitionList } from "./competitionListViewModel.js";
 
 export function useCompetitionListViewModel({ repository }) {
   const [state, dispatch] = useReducer(competitionListStateReducer, initialCompetitionListState);
@@ -10,11 +10,7 @@ export function useCompetitionListViewModel({ repository }) {
     let active = true;
     const requestId = ++nextRequestId.current;
     dispatch({ type: "load-start", requestId });
-    repository.listCompetitions().then(competitions => {
-      if (active) dispatch({ type: "load-success", requestId, competitions });
-    }).catch(error => {
-      if (active) dispatch({ type: "load-error", requestId, error });
-    });
+    loadCompetitionList({ repository, dispatch, requestId, isActive: () => active });
     return () => { active = false; };
   }, [repository, reloadKey]);
 

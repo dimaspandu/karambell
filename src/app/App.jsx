@@ -110,7 +110,7 @@ export default function App() {
         <SessionList sessions={sessions} loading={competitionList.loading} error={competitionList.status === "error"} onOpen={id => navigate("competition-detail", { sessionId: id })} onCreate={() => setCreateOpen(true)} onRetry={competitionList.retry}/>
       </section>
       <section className={`view ${!leaderboardPage && activeSession ? "view--active" : ""}`} aria-label="Detail kompetisi">
-        <CompetitionWorkspace competition={activeSession} activeTab={activeTab} loading={competitionDetail.status === "loading"} repository={competitionRepository} upsertCompetition={competitionList.upsertCompetition} retry={competitionList.retry} navigate={navigate} showToast={showToast}/>
+        <CompetitionWorkspace competition={activeSession} activeTab={activeTab} presentation={route.presentation} onPresentationChange={historyRouter.setPresentation} loading={competitionDetail.status === "loading"} repository={competitionRepository} upsertCompetition={competitionList.upsertCompetition} retry={competitionList.retry} navigate={navigate} showToast={showToast}/>
       </section>
       <section className={`view ${leaderboardPage ? "view--active" : ""}`} aria-label="Global leaderboard"><Leaderboard viewModel={leaderboardViewModel} onNavigate={navigate}/></section>
     </main>

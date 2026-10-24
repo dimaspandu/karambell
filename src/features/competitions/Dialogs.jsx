@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { elapsedMilliseconds, formatElapsedTime, remainingMilliseconds } from "../matches/matchTimer.js";
 import { getParticipant } from "../../domain/competitionModel.js";
 import { createRandomTeamPairing, parseParticipantNames } from "../../domain/teamPairing.js";
 import { TOURNAMENT_FORMAT_OPTIONS, TOURNAMENT_FORMATS } from "../../domain/tournamentFormats.js";
@@ -15,6 +16,29 @@ function Modal({ open, onOpenChange, className = "", children, id }) {
     else if (!open && dialog.open) dialog.close();
   }, [open]);
   return <dialog id={id} ref={ref} className={`modal ${className}`} onClose={() => onOpenChange(false)}>{children}</dialog>;
+}
+
+function MatchTimer({ open, matchId }) {
+  const [timer, setTimer] = useState({ elapsedMs: 0, startedAt: null });
+  const [durationMinutes, setDurationMinutes] = useState(10);
+  const [, refreshTimer] = useState(0);
+  useEffect(() => {
+    if (!open || timer.startedAt === null) return undefined;
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      if (remainingMilliseconds(timer, durationMinutes, now) === 0) {
+        setTimer({ elapsedMs: durationMinutes * 60_000, startedAt: null });
+      } else refreshTimer(now);
+    }, 250);
+    return () => window.clearInterval(interval);
+  }, [open, timer.startedAt, timer.elapsedMs, durationMinutes]);
+  useEffect(() => { setTimer({ elapsedMs: 0, startedAt: null }); }, [open, matchId]);
+  const remaining = remainingMilliseconds(timer, durationMinutes);
+  const elapsed = elapsedMilliseconds(timer);
+  const toggleTimer = () => setTimer(current => current.startedAt === null
+    ? { elapsedMs: current.elapsedMs, startedAt: Date.now() }
+    : { elapsedMs: elapsedMilliseconds(current), startedAt: null });
+  return <section className="match-timer" aria-label="Timer pertandingan"><div><label className="match-timer__duration">Durasi<select aria-label="Durasi timer" value={durationMinutes} disabled={timer.startedAt !== null} onChange={event => setDurationMinutes(Number(event.target.value))}>{[5, 10, 15, 20, 30].map(minutes => <option value={minutes} key={minutes}>{minutes} menit</option>)}</select></label><strong role="timer" aria-live="off">{formatElapsedTime(remaining)}</strong><small>{remaining === 0 ? "Waktu habis." : "Hanya tersimpan di sesi browser ini."}</small></div><div><button type="button" className="button button--outline button--small" onClick={toggleTimer} disabled={remaining === 0}>{timer.startedAt === null ? timer.elapsedMs ? "Lanjutkan" : "Mulai" : "Jeda"}</button><button type="button" className="button button--outline button--small" onClick={() => setTimer({ elapsedMs: 0, startedAt: null })} disabled={!elapsed}>Reset</button></div></section>;
 }
 
 export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, error, onErrorClear }) {
@@ -107,6 +131,7 @@ export function ScoreDialog({ open, onOpenChange, competition, match, onSubmit, 
     {match && first && second && <form key={match.id} className="modal__form" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); onSubmit({ session_id: competition.id, match_id: match.id, score1: Number(values.get("score1")), score2: Number(values.get("score2")) }); }}>
       <div className="modal__heading"><div><span className="eyebrow">PERTANDINGAN {match.id}</span><h2>Update skor</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
       <p className="score-intro">{matchRoundName(match.round, competition.totalRounds, match.stage, competition.format)} · Masukkan skor akhir pemain.</p><input type="hidden" name="matchId" value={match.id} readOnly/>
+      <MatchTimer open={open} matchId={match?.id}/>
       <div className="score-players">
         <label className="score-player"><span className="score-player__avatar">{initials(first.name)}</span><strong>{first.name}</strong><span>Skor</span><input type="number" name="score1" min="0" max="999" required defaultValue={match.score1 ?? 0}/></label>
         <span className="score-versus">VS</span>
@@ -135,6 +160,7 @@ export function TeamWinnerDialog({ open, onOpenChange, competition, match, onSub
     }}>
       <div className="modal__heading"><div><span className="eyebrow">{match.id} · {matchRoundName(match.round, competition.totalRounds, match.stage, competition.format)}</span><h2>Tentukan pemenang</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
       <p className="score-intro">Pilih tim yang menang pada pertandingan ini.</p>
+      <MatchTimer open={open} matchId={match?.id}/>
       <div className="team-winner-options">{[first, second].map(team => <label className={`team-winner-option ${winnerId === team.id ? "team-winner-option--selected" : ""}`} key={team.id}>
         <input type="radio" name="winnerId" value={team.id} checked={winnerId === team.id} onChange={() => setWinnerId(team.id)} required/>
         <span><strong>{team.name}</strong><small>{winnerId === team.id ? "Pemenang saat ini" : "Pilih sebagai pemenang"}</small></span>

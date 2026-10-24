@@ -1,5 +1,1 @@
-// Copy to data.js and set the public project URL and anon/publishable key.
-export const dataConfig = {
-  supabaseUrl: "",
-  supabaseAnonKey: ""
-};
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your local environment.

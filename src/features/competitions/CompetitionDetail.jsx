@@ -1,5 +1,6 @@
-import { getCompetitionProgress } from "../domain/competitionProgress.js";
-import { formatDate, getParticipant, initials, matchRoundName } from "../domain/competitionModel.js";
+import { getCompetitionProgress } from "../../domain/competitionProgress.js";
+import { getParticipant } from "../../domain/competitionModel.js";
+import { formatDate, initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 import { Bracket } from "./Bracket.jsx";
 
 function competitorInitials(competition, participant) {
@@ -15,7 +16,7 @@ function Participants({ competition }) {
   </div>)}</div>;
 }
 
-function MatchTable({ competition, onEditScore, onChooseWinner }) {
+function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseWinner }) {
   return <div className="table-wrap"><table><thead><tr><th>Pertandingan</th><th>Babak</th><th>{competition.isTeamCompetition ? "Tim" : "Pemain"}</th><th>{competition.isTeamCompetition ? "Hasil" : "Skor"}</th><th>Status</th><th/></tr></thead><tbody>
     {competition.matches.map(match => {
       const first = getParticipant(competition, match.participant1Id);
@@ -29,7 +30,7 @@ function MatchTable({ competition, onEditScore, onChooseWinner }) {
         <td>{first?.name || "—"} vs {second?.name || "—"}</td><td>{result}</td>
         <td><span className={`status-pill ${match.status === "completed" ? "status-pill--done" : ""}`}>{status}</span></td>
         <td>{first && second && (competition.isTeamCompetition
-          ? <button className="table-action" onClick={() => onChooseWinner(match.id)}>{match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button>
+          ? !isTournamentCompleted && <button className="table-action" onClick={() => onChooseWinner(match.id)}>{match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button>
           : <button className="table-action" onClick={() => onEditScore(match.id)}>{match.status === "completed" ? "Ubah skor" : "Input skor"}</button>)}</td>
       </tr>;
     })}
@@ -68,7 +69,7 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
     </button>)}</div>
     <section className={`tab-panel ${activeTab === "bracket" ? "tab-panel--active" : ""}`}>
       <div className="bracket-toolbar"><div><h3>Bagan pertandingan</h3><p>{competition.isTeamCompetition ? "Pilih Menang pada tim pemenang; tim lainnya otomatis tercatat Kalah." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span></div>
-      <div className="bracket-scroll"><Bracket competition={competition} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div>
+      <div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div>
       <div className="bracket-footer"><span>✦</span><div><strong>Perjalanan menuju juara</strong><p>Skor disimpan per pertandingan. Pemenang otomatis maju ke babak berikutnya.</p></div></div>
     </section>
     <section className={`tab-panel ${activeTab === "participants" ? "tab-panel--active" : ""}`}>
@@ -80,7 +81,7 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
     </section>
     <section className={`tab-panel ${activeTab === "matches" ? "tab-panel--active" : ""}`}>
       <div className="panel-heading"><div><h3>Daftar pertandingan</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil disimpan dan pemenang maju otomatis." : "Perbarui skor atau periksa status setiap pertandingan."}</p></div></div>
-      <MatchTable competition={competition} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>
+      <MatchTable competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>
     </section>
   </>;
 }

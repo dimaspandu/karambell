@@ -1,12 +1,14 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { getCompetitionProgress } from "../domain/competitionProgress.js";
-import { getParticipant, initials, matchRoundName } from "../domain/competitionModel.js";
+import { getCompetitionProgress } from "../../domain/competitionProgress.js";
+import { getParticipant } from "../../domain/competitionModel.js";
+import { initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
+import { shouldShowWinnerAction } from "./winnerActionVisibility.js";
 
 function competitorInitials(competition, participant) {
   return !participant ? "" : competition.isTeamCompetition ? participant.name.split(" & ").map(initials).join("&") : initials(participant.name);
 }
 
-function MatchCard({ competition, match, onEditScore, onChooseWinner }) {
+function MatchCard({ competition, match, isTournamentCompleted, onEditScore, onChooseWinner }) {
   const first = getParticipant(competition, match.participant1Id);
   const second = getParticipant(competition, match.participant2Id);
   const canEdit = Boolean(first && second);
@@ -36,12 +38,12 @@ function MatchCard({ competition, match, onEditScore, onChooseWinner }) {
     onKeyDown={event => { if ((event.key === "Enter" || event.key === " ") && !competition.isTeamCompetition && canEdit) { event.preventDefault(); onEditScore(match.id); } }}>
     <div className="match-card__head"><span>{match.id} · {matchRoundName(match.round, competition.totalRounds)}</span><span>{status}</span></div>
     {playerRow(first, match.score1, 1)}{playerRow(second, match.score2, 2)}
-    {competition.isTeamCompetition && canEdit && <div className="team-result-actions"><button type="button" onClick={() => onChooseWinner(match.id)}>{match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button></div>}
+    {competition.isTeamCompetition && shouldShowWinnerAction({ isTournamentCompleted, canEditMatch: canEdit }) && <div className="team-result-actions"><button type="button" onClick={() => onChooseWinner(match.id)}>{match.winnerId ? "Ubah pemenang" : "Tentukan pemenang"}</button></div>}
     {!competition.isTeamCompetition && canEdit && <button className="match-card__edit" type="button" onClick={() => onEditScore(match.id)}>{match.status === "completed" ? "✎ Ubah skor" : "＋ Input skor"}</button>}
   </article>;
 }
 
-export function Bracket({ competition, onEditScore, onChooseWinner }) {
+export function Bracket({ competition, isTournamentCompleted, onEditScore, onChooseWinner }) {
   const rootRef = useRef(null);
   const [paths, setPaths] = useState([]);
   const progress = getCompetitionProgress(competition.matches);
@@ -88,7 +90,7 @@ export function Bracket({ competition, onEditScore, onChooseWinner }) {
       const roundClass = round === 1 ? "r1" : round === competition.totalRounds ? "r3" : "r2";
       return <section className={`bracket__round bracket__round--${roundClass}`} aria-label={matchRoundName(round, competition.totalRounds)} key={round}>
         <h4 className="bracket__round-title">{matchRoundName(round, competition.totalRounds)}</h4>
-        {matches.map(match => <MatchCard key={match.id} competition={competition} match={match} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>) }
+        {matches.map(match => <MatchCard key={match.id} competition={competition} match={match} isTournamentCompleted={isTournamentCompleted} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>) }
       </section>;
     })}
     <section className="bracket__round bracket__round--champion"><h4 className="bracket__round-title">Juara</h4><div className="champion-card">

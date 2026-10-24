@@ -1,6 +1,6 @@
 # Supabase schema reference
 
-This documents the Supabase schema supplied for Karambell. It is a reference for the current provider adapter, not a migration script; review it against the target project's live database before making schema changes. Configure Row Level Security and policies separately before exposing tables through the Supabase REST API.
+This documents the Supabase schema used by Karambell. It is a reference for the current data-access layer, not a migration script; review it against the target project's live database before making schema changes. Configure Row Level Security and policies separately before exposing tables through the Supabase REST API.
 
 ## `public.sessions`
 
@@ -67,4 +67,4 @@ Primary key: (`team_id`, `player_id`). The adapter writes `session_id`, `team_id
 
 ## Adapter mapping
 
-The Supabase adapter uses `sessions.id` as the session identifier, and `matches.id` as the match identifier. Team brackets use `matches.team1_id`, `team2_id`, and `winner_team_id`; scores remain in `score1` and `score2`. Team player names are resolved through `team_members` to `players`. This shape is separate from the Google Sheets columns and IDs documented in the sibling folder.
+The Supabase data layer uses `sessions.id` as the session identifier, and `matches.id` as the match identifier. Team brackets use `matches.team1_id`, `team2_id`, and `winner_team_id`; scores remain in `score1` and `score2`. Team player names are resolved through `team_members` to `players`.

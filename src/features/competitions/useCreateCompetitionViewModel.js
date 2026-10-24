@@ -3,7 +3,10 @@ import { createCompetitionSubmissionGate, createCompetitionStateReducer, deliver
 
 function errorMessage(error) {
   if (error.code === "COMPETITION_VALIDATION") return error.message;
-  if (error.code === "COMPETITION_CLEANUP_FAILED") return "Pembuatan gagal dan sebagian data mungkin masih tersisa karena pembersihan tidak selesai.";
+  if (error.code === "COMPETITION_CLEANUP_FAILED") {
+    const cleanup = (error.cleanupFailures || []).map(failure => `${failure.table}: ${failure.message}`).join("; ");
+    return `Kompetisi gagal pada tahap ${error.creationStage || "tidak diketahui"}: ${error.message || "request Supabase gagal"}. Pembersihan juga gagal${cleanup ? ` (${cleanup})` : ""}. Jangan coba ulang sebelum data sisa diperiksa.`;
+  }
   if (error.code === "COMPETITION_CREATE_UNCERTAIN") return "Status pembuatan belum dapat dipastikan. Muat ulang daftar kompetisi sebelum mencoba lagi.";
   if (error.code === "COMPETITION_REFRESH_FAILED" || error.code === "COMPETITION_CREATE_RESPONSE") return error.message;
   return "Gagal membuat kompetisi. Silakan periksa koneksi lalu coba lagi.";

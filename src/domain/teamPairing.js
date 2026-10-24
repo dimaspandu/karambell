@@ -1,3 +1,5 @@
+import { TOURNAMENT_FORMATS } from "./tournamentFormats.js";
+
 /** Parse the comma, semicolon, and newline separated names accepted by the creation form. */
 export function parseParticipantNames(value) {
   const names = String(value || "").split(/[\n,;]+/).map(name => name.trim()).filter(Boolean);
@@ -10,7 +12,6 @@ export function parseParticipantNames(value) {
   }
   return { names, duplicates };
 }
-
 /** Fisher-Yates pairing, with injectable randomness for deterministic tests. */
 export function createRandomTeamPairing(participants, random = Math.random) {
   const shuffled = [...participants];
@@ -35,8 +36,19 @@ export function validateCompetitionCreation(input) {
   if (!date) return fail("Tanggal kompetisi wajib diisi.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) return fail("Tanggal kompetisi tidak valid.");
   if (location.length > 80) return fail("Lokasi maksimal 80 karakter.");
-  if (input?.format !== "single_elimination") return fail("Format kompetisi tidak didukung.");
+  const format = String(input?.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION);
+  const supportedFormats = Object.values(TOURNAMENT_FORMATS);
+  if (!supportedFormats.includes(format)) return fail("Format kompetisi tidak didukung.");
   if (participants.length < 2) return fail("Minimal dua tim diperlukan untuk membuat kompetisi.");
+  if (participants.length > 64) return fail("Maksimal 64 tim untuk setiap kompetisi.");
+  if (format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION && (participants.length < 4 || (participants.length & (participants.length - 1)) !== 0)) {
+    return fail("Double elimination memerlukan 4, 8, 16, 32, atau 64 tim.");
+  }
+  const groupCount = Number(input?.group_count || 2);
+  if (format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT && (
+    ![2, 4, 8].includes(groupCount)
+    || participants.length < groupCount * 2
+  )) return fail("Group + knockout memerlukan minimal dua tim per grup dan jumlah grup 2, 4, atau 8.");
 
   const members = [];
   for (const team of participants) {
@@ -51,5 +63,5 @@ export function validateCompetitionCreation(input) {
     return fail("Setiap pemain hanya dapat terdaftar satu kali.");
   }
 
-  return { valid: true, value: { name, event_date: date, location, format: input.format, isTeamCompetition: true, participants } };
+  return { valid: true, value: { name, event_date: date, location, format, group_count: groupCount, isTeamCompetition: true, participants } };
 }

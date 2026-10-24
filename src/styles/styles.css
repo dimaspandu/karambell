@@ -124,7 +124,12 @@ p { color: var(--ink-soft); }
 .bracket__round { width: 224px; display: flex; flex-direction: column; flex-shrink: 0; }
 .bracket__round--r1 { gap: 12px; }
 .bracket__round--r2 { justify-content: space-around; gap: 12px; padding: 30px 0; }
-.bracket__round--r3 { justify-content: center; }
+.bracket__round--r3 { justify-content: center; gap: 12px; }
+.bracket__round--schedule { justify-content: flex-start; gap: 12px; }
+.bracket-qualifiers { display: grid; gap: 6px; margin-top: 4px; padding: 10px; border: 1px dashed #cbd8c7; border-radius: 10px; color: #6b796c; background: #f2f6ee; font-size: 10px; }
+.bracket-qualifiers span { display: flex; align-items: center; gap: 6px; }
+.bracket-qualifiers span strong { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; color: #42694a; background: #dfeedd; }
+.bracket-qualifiers small { color: #889286; }
 .bracket__round--champion { width: 164px; justify-content: center; }
 .bracket__round-title { margin: 0 0 11px; color: #728074; font-size: 11px; font-weight: 900; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
 .bracket__round--r2 .bracket__round-title, .bracket__round--r3 .bracket__round-title, .bracket__round--champion .bracket__round-title { margin-bottom: 22px; }

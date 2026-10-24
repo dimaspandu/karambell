@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getParticipant } from "../../domain/competitionModel.js";
 import { createRandomTeamPairing, parseParticipantNames } from "../../domain/teamPairing.js";
+import { TOURNAMENT_FORMAT_OPTIONS, TOURNAMENT_FORMATS } from "../../domain/tournamentFormats.js";
 import { initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 import { clearTeamPairingDraft, readTeamPairingDraft, saveTeamPairingDraft } from "../../shared/persistence/appStorage.js";
 
@@ -20,6 +21,8 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, 
   const [name, setName] = useState("");
   const [date, setDate] = useState("2026-10-19");
   const [location, setLocation] = useState("");
+  const [format, setFormat] = useState(TOURNAMENT_FORMATS.SINGLE_ELIMINATION);
+  const [groupCount, setGroupCount] = useState(2);
   const [participantsInput, setParticipantsInput] = useState("Rahman, Prastio, Athaya, Dimas, Dedi, Azhar, Rizky, Bastian, Bagas, Faisal, Raihan, Pandu");
   const [teams, setTeams] = useState(null);
 
@@ -38,6 +41,13 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, 
 
   const { names, duplicates } = parseParticipantNames(participantsInput);
   const validCount = names.length >= 4 && names.length % 2 === 0;
+  const teamCount = names.length / 2;
+  const availableGroupCounts = [2, 4, 8].filter(count => count * 2 <= teamCount);
+  const selectedGroupCount = availableGroupCounts.includes(Number(groupCount)) ? Number(groupCount) : availableGroupCounts[0] || "";
+  const doubleEliminationValid = teamCount >= 4 && (teamCount & (teamCount - 1)) === 0;
+  const formatValid = format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION
+    ? doubleEliminationValid
+    : format !== TOURNAMENT_FORMATS.GROUP_KNOCKOUT || Boolean(selectedGroupCount);
   const previewNames = teams?.flatMap(team => team.members).map(value => value.toLocaleLowerCase("id-ID")).sort() || [];
   const inputNames = names.map(value => value.toLocaleLowerCase("id-ID")).sort();
   const previewMatches = teams && previewNames.length === names.length && previewNames.join("\0") === inputNames.join("\0");
@@ -56,9 +66,9 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, 
   };
   const submit = async event => {
     event.preventDefault();
-    if (!previewMatches || duplicates.length) return;
+    if (!previewMatches || duplicates.length || !formatValid) return;
     const form = new FormData(event.currentTarget);
-    const success = await onSubmit({ name: String(form.get("name") || "").trim(), event_date: String(form.get("date") || ""), location: String(form.get("location") || "").trim(), format: String(form.get("format") || "single_elimination"), isTeamCompetition: true, participants: teams.map(team => team.members.join(" & ")) });
+    const success = await onSubmit({ name: String(form.get("name") || "").trim(), event_date: String(form.get("date") || ""), location: String(form.get("location") || "").trim(), format, group_count: Number(form.get("group_count") || selectedGroupCount || 2), isTeamCompetition: true, participants: teams.map(team => team.members.join(" & ")) });
     if (success) {
       setTeams(null);
       clearTeamPairingDraft();
@@ -74,15 +84,18 @@ export function CreateCompetitionDialog({ open, onOpenChange, onSubmit, saving, 
     <form className="modal__form" onSubmit={submit}>
       <div className="modal__heading"><div><span className="eyebrow">SESI BARU</span><h2>Buat kompetisi</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
       <label>Nama kompetisi<input name="name" required maxLength="80" value={name} onChange={event => { setName(event.target.value); onErrorClear?.(); }} placeholder="Contoh: Karambol Gamebell 2026"/></label>
-      <div className="form-row"><label>Tanggal<input name="date" type="date" value={date} onChange={event => { setDate(event.target.value); onErrorClear?.(); }} required/></label><label>Format<select name="format" value="single_elimination" onChange={() => onErrorClear?.()}><option value="single_elimination">Tim · Single elimination</option></select></label></div>
+      <div className="form-row"><label>Tanggal<input name="date" type="date" value={date} onChange={event => { setDate(event.target.value); onErrorClear?.(); }} required/></label><label>Format<select name="format" value={format} onChange={event => { setFormat(event.target.value); onErrorClear?.(); }}>{TOURNAMENT_FORMAT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
+      {format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT && <label>Jumlah grup<select name="group_count" value={selectedGroupCount} onChange={event => { setGroupCount(Number(event.target.value)); onErrorClear?.(); }}>{availableGroupCounts.map(count => <option key={count} value={count}>{count} grup · 2 tim teratas lolos</option>)}</select></label>}
       <label>Lokasi <span className="optional">(opsional)</span><input name="location" maxLength="80" value={location} onChange={event => { setLocation(event.target.value); onErrorClear?.(); }} placeholder="Contoh: Gamebell Community"/></label>
       <label>Pemain <span className="optional">(pisahkan dengan koma atau baris baru; setiap pemain hanya sekali)</span><textarea name="participants" rows="5" value={participantsInput} onChange={event => updateParticipants(event.target.value)} required/></label>
       <div className="team-pairing"><div className="team-pairing__header"><p className="form-note" aria-live="polite">{pairingMessage}</p><button type="button" className="button button--outline button--small" disabled={!validCount || duplicates.length > 0} onClick={generateTeams}>Acak Pasangan</button></div>
         <div className="team-pairing__preview" aria-live="polite">{teams?.map((team, index) => <div className="team-preview__item" key={index}><span>Tim {String(index + 1).padStart(2, "0")}</span><strong>{team.members[0]} &amp; {team.members[1]}</strong></div>)}</div>
       </div>
-      <p className="form-note">Jumlah pemain harus genap dan minimal 4. Tim diacak sekali sebelum sesi dibuat; jumlah tim ganjil tetap bisa memakai bye di bagan.</p>
+      <p className="form-note">Jumlah pemain harus genap dan minimal 4. Tim diacak sekali sebelum sesi dibuat. {format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Double elimination membutuhkan jumlah tim 4, 8, 16, 32, atau 64." : format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Round robin memakai satu pertemuan tiap pasangan tim; hasil seri tidak tersedia." : format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Tim dibagi merata ke grup; dua teratas tiap grup masuk knockout." : "Single elimination memakai bye otomatis jika jumlah tim bukan pangkat dua."}</p>
+      {!formatValid && format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION && <p className="form-note form-note--error">Double elimination membutuhkan 4, 8, 16, 32, atau 64 tim.</p>}
+      {!formatValid && format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT && <p className="form-note form-note--error">Group + knockout membutuhkan minimal 4 tim. Tambahkan tim atau pilih format lain.</p>}
       {error && <p className="form-note form-note--error" role="alert">{error}</p>}
-      <div className="modal__actions"><button type="button" className="button button--outline" onClick={() => onOpenChange(false)}>Batal</button><button type="submit" className="button button--primary" disabled={!previewMatches || duplicates.length > 0 || saving}>{saving ? "Menyimpan…" : "Buat Sesi"}</button></div>
+      <div className="modal__actions"><button type="button" className="button button--outline" onClick={() => onOpenChange(false)}>Batal</button><button type="submit" className="button button--primary" disabled={!previewMatches || duplicates.length > 0 || !formatValid || saving}>{saving ? "Menyimpan…" : "Buat Sesi"}</button></div>
     </form>
   </Modal>;
 }
@@ -93,7 +106,7 @@ export function ScoreDialog({ open, onOpenChange, competition, match, onSubmit, 
   return <Modal id="score-modal" className="modal--compact" open={open} onOpenChange={onOpenChange}>
     {match && first && second && <form key={match.id} className="modal__form" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); onSubmit({ session_id: competition.id, match_id: match.id, score1: Number(values.get("score1")), score2: Number(values.get("score2")) }); }}>
       <div className="modal__heading"><div><span className="eyebrow">PERTANDINGAN {match.id}</span><h2>Update skor</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
-      <p className="score-intro">{matchRoundName(match.round, competition.totalRounds)} · Masukkan skor akhir pemain.</p><input type="hidden" name="matchId" value={match.id} readOnly/>
+      <p className="score-intro">{matchRoundName(match.round, competition.totalRounds, match.stage, competition.format)} · Masukkan skor akhir pemain.</p><input type="hidden" name="matchId" value={match.id} readOnly/>
       <div className="score-players">
         <label className="score-player"><span className="score-player__avatar">{initials(first.name)}</span><strong>{first.name}</strong><span>Skor</span><input type="number" name="score1" min="0" max="999" required defaultValue={match.score1 ?? 0}/></label>
         <span className="score-versus">VS</span>
@@ -120,7 +133,7 @@ export function TeamWinnerDialog({ open, onOpenChange, competition, match, onSub
       }
       onSubmit(match.id, winnerId);
     }}>
-      <div className="modal__heading"><div><span className="eyebrow">{match.id} · {matchRoundName(match.round, competition.totalRounds)}</span><h2>Tentukan pemenang</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
+      <div className="modal__heading"><div><span className="eyebrow">{match.id} · {matchRoundName(match.round, competition.totalRounds, match.stage, competition.format)}</span><h2>Tentukan pemenang</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup">×</button></div>
       <p className="score-intro">Pilih tim yang menang pada pertandingan ini.</p>
       <div className="team-winner-options">{[first, second].map(team => <label className={`team-winner-option ${winnerId === team.id ? "team-winner-option--selected" : ""}`} key={team.id}>
         <input type="radio" name="winnerId" value={team.id} checked={winnerId === team.id} onChange={() => setWinnerId(team.id)} required/>

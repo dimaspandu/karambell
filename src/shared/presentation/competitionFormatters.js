@@ -6,4 +6,11 @@ export const formatDate = date => {
   return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(parsed);
 };
 
-export const matchRoundName = (round, totalRounds) => round === totalRounds ? "Final" : round === totalRounds - 1 ? "Semifinal" : round === totalRounds - 2 ? "Perempat final" : `Babak ${round}`;
+export const matchRoundName = (round, totalRounds, stage = "main", format = "single_elimination") => {
+  if (stage === "group") return `Grup · Ronde ${round}`;
+  if (stage === "winners") return `Winners · Ronde ${round}`;
+  if (stage === "losers") return `Losers · Ronde ${round}`;
+  if (stage === "grand_final") return "Grand final";
+  if (format === "round_robin") return `Ronde ${round}`;
+  return round === totalRounds ? "Final" : round === totalRounds - 1 ? "Semifinal" : round === totalRounds - 2 ? "Perempat final" : `Babak ${round}`;
+};

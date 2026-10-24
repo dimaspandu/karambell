@@ -1,5 +1,8 @@
 import { getCompetitionProgress } from "../../domain/competitionProgress.js";
 import { getParticipant } from "../../domain/competitionModel.js";
+import { tournamentFormatLabel } from "../../domain/tournamentFormats.js";
+import { TOURNAMENT_FORMATS } from "../../domain/tournamentFormats.js";
+import { getTournamentStandings } from "../../domain/tournamentStandings.js";
 import { formatDate, initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 import { Bracket } from "./Bracket.jsx";
 
@@ -16,6 +19,25 @@ function Participants({ competition }) {
   </div>)}</div>;
 }
 
+function StandingsTable({ competition, group = null }) {
+  const standings = getTournamentStandings({
+    matches: competition.matches,
+    participants: competition.participants,
+    groups: competition.groups,
+    groupId: group?.id,
+    stage: competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "main" : "group"
+  });
+  return <div className="table-wrap standings-table"><table><thead><tr><th>#</th><th>{competition.isTeamCompetition ? "Tim" : "Peserta"}</th><th>Main</th><th>Menang</th><th>Kalah</th><th>Poin</th></tr></thead><tbody>
+    {standings.map((row, index) => <tr key={row.id}><td>{index + 1}</td><td>{row.name}</td><td>{row.played}</td><td>{row.wins}</td><td>{row.losses}</td><td><strong>{row.points}</strong></td></tr>)}
+  </tbody></table></div>;
+}
+
+function StandingsPanel({ competition }) {
+  if (competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN) return <section className="standings-panel"><h3>Klasemen</h3><p>Urutan berdasarkan poin kemenangan, head-to-head untuk dua tim yang imbang, lalu seed.</p><StandingsTable competition={competition}/></section>;
+  if (competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT) return <section className="standings-panel"><h3>Klasemen grup</h3><p>Dua tim teratas setiap grup lolos ke knockout. Peringkat seri memakai head-to-head lalu seed.</p><div className="standings-grid">{competition.groups.map(group => <div key={group.id}><h4>{group.name}</h4><StandingsTable competition={competition} group={group}/></div>)}</div></section>;
+  return null;
+}
+
 function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseWinner }) {
   return <div className="table-wrap"><table><thead><tr><th>Pertandingan</th><th>Babak</th><th>{competition.isTeamCompetition ? "Tim" : "Pemain"}</th><th>{competition.isTeamCompetition ? "Hasil" : "Skor"}</th><th>Status</th><th/></tr></thead><tbody>
     {competition.matches.map(match => {
@@ -26,7 +48,7 @@ function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseW
         ? match.status === "bye" ? "Bye" : winnerIsFirst ? "Menang — Kalah" : match.winnerId ? "Kalah — Menang" : "Belum dimainkan"
         : match.score1 === null ? "–" : `${match.score1} — ${match.score2}`;
       const status = match.status === "completed" ? "Selesai" : match.status === "bye" ? "Bye" : first && second ? "Belum dimainkan" : "Menunggu";
-      return <tr key={match.id}><td><strong>{match.id}</strong></td><td>{matchRoundName(match.round, competition.totalRounds)}</td>
+      return <tr key={match.id}><td><strong>{match.id}</strong></td><td>{matchRoundName(match.round, competition.totalRounds, match.stage, competition.format)}</td>
         <td>{first?.name || "—"} vs {second?.name || "—"}</td><td>{result}</td>
         <td><span className={`status-pill ${match.status === "completed" ? "status-pill--done" : ""}`}>{status}</span></td>
         <td>{first && second && (competition.isTeamCompetition
@@ -38,7 +60,7 @@ function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseW
 }
 
 export function CompetitionDetail({ competition, activeTab, onNavigate, onAddParticipant, onEditScore, onChooseWinner, onExport }) {
-  const summary = getCompetitionProgress(competition.matches);
+  const summary = getCompetitionProgress(competition.matches, competition);
   const champion = summary.championId ? getParticipant(competition, summary.championId) : null;
   const tabs = [
     { id: "bracket", label: "Bagan" },
@@ -51,7 +73,7 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
       <div className="detail-heading__main">
         <div className="session-emblem" aria-hidden="true">✦</div>
         <div className="detail-heading__copy">
-          <div className="inline-tags"><span className="tag tag--green">{summary.isComplete ? "Selesai" : "Berlangsung"}</span><span className="tag tag--muted">{competition.isTeamCompetition ? "Tim · Single elimination" : "Single elimination"}</span></div>
+          <div className="inline-tags"><span className="tag tag--green">{summary.isComplete ? "Selesai" : "Berlangsung"}</span><span className="tag tag--muted">{tournamentFormatLabel(competition.format)}</span></div>
           <h2>{competition.name}</h2>
           <p>{competition.isTeamCompetition ? `${competition.participants.length * 2} pemain · ${competition.participants.length} tim` : `${competition.participants.length} peserta`} · {formatDate(competition.date)}{competition.location ? ` · ${competition.location}` : ""}</p>
         </div>
@@ -68,7 +90,8 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
       {tab.label}{tab.count != null && <> <span>{tab.count}</span></>}
     </button>)}</div>
     <section className={`tab-panel ${activeTab === "bracket" ? "tab-panel--active" : ""}`}>
-      <div className="bracket-toolbar"><div><h3>Bagan pertandingan</h3><p>{competition.isTeamCompetition ? "Pilih Menang pada tim pemenang; tim lainnya otomatis tercatat Kalah." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span></div>
+      <div className="bracket-toolbar"><div><h3>{competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Jadwal pertandingan" : competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Grup dan knockout" : competition.format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Winners, losers, dan final" : "Bagan pertandingan"}</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil pertandingan mengalir ke slot berikutnya." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span></div>
+      <StandingsPanel competition={competition}/>
       <div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div>
       <div className="bracket-footer"><span>✦</span><div><strong>Perjalanan menuju juara</strong><p>Skor disimpan per pertandingan. Pemenang otomatis maju ke babak berikutnya.</p></div></div>
     </section>

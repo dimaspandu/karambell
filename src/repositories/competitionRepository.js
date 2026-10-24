@@ -99,7 +99,6 @@ export function createCompetitionRepository({ provider, isTeamSessionKnown = () 
       try {
         const competition = normalizeProviderCompetition(payload);
         if (!competition.id || !competition.matches.length) throw new Error("Respons provider belum memuat kompetisi dan bagannya.");
-        if (competition.isTeamCompetition) competition.format = "team_single_elimination";
         return competition;
       } catch (cause) {
         if (cause.code) throw cause;

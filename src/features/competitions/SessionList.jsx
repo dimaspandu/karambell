@@ -26,7 +26,7 @@ export function SessionList({ sessions, loading, error = false, onOpen, onCreate
       {error && <button type="button" className="button button--outline" onClick={onRetry}>Coba muat ulang</button>}
       {!loading && !error && <button className="button button--primary" onClick={onCreate}>＋ Buat Sesi</button>}
     </section> : <><div className="session-grid">{sessions.map(session => {
-      const progress = getCompetitionProgress(session.matches);
+      const progress = getCompetitionProgress(session.matches, session);
       const champion = progress.championId ? getParticipant(session, progress.championId)?.name : null;
       const count = session.isTeamCompetition ? `${session.participants.length} tim` : `${session.participants.length} peserta`;
       return <button className="session-card" key={session.id} onClick={() => onOpen(session.id)}>

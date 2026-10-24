@@ -3,7 +3,9 @@ export function normalizeCompetition(payload, { isTeamSessionKnown = false } = {
   const participants = (payload.participants || []).map(participant => ({
     id: String(participant.participant_id),
     name: String(participant.name || ""),
-    seed: Number(participant.seed || 0)
+    seed: Number(participant.seed || 0),
+    sourceId: participant.source_id == null ? null : String(participant.source_id),
+    sourceType: participant.source_type || null
   }));
   const matches = (payload.matches || []).map(match => ({
     id: String(match.match_id),

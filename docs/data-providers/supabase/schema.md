@@ -11,7 +11,8 @@ This documents the Supabase schema used by Karambell. It is a reference for the 
 | `event_date` | `date` | Nullable |
 | `location` | `text` | Nullable |
 | `status` | `text` | Not null; default `draft`; allowed: `draft`, `registration`, `in_progress`, `completed` |
-| `format` | `text` | Not null; default and only allowed value: `single_elimination` |
+| `format` | `text` | Not null; default `single_elimination`; allowed: `single_elimination`, `double_elimination`, `round_robin`, `group_knockout` |
+| `participant_mode` | `text` | Nullable during rollout; `team` or `individual` |
 | `created_at` | `timestamptz` | Not null; default `now()` |
 | `updated_at` | `timestamptz` | Not null; default `now()` |
 
@@ -64,7 +65,16 @@ Primary key: (`team_id`, `player_id`). The adapter writes `session_id`, `team_id
 | `updated_at` | `timestamptz` | Not null; default `now()` |
 | `score1` | `smallint` | Nullable |
 | `score2` | `smallint` | Nullable |
+| `stage` | `text` | Not null; default `main`; allowed: `main`, `group`, `winners`, `losers`, `grand_final` |
+| `group_id` | `uuid` | Nullable; references `tournament_groups` within the same session |
+| `participant1_participant_id` | `uuid` | Nullable; references `competition_participants` within the same session |
+| `participant2_participant_id` | `uuid` | Nullable; references `competition_participants` within the same session |
+| `winner_participant_id` | `uuid` | Nullable; references `competition_participants` within the same session |
 
 ## Adapter mapping
 
-The Supabase data layer uses `sessions.id` as the session identifier, and `matches.id` as the match identifier. Team brackets use `matches.team1_id`, `team2_id`, and `winner_team_id`; scores remain in `score1` and `score2`. Team player names are resolved through `team_members` to `players`.
+The Supabase data layer uses `sessions.id` as the session identifier and `matches.id` as the match identifier. Match-facing participant IDs use `competition_participants.id`; team/player names resolve through its `team_id`/`player_id` source and existing `team_members` rows. During compatibility rollout, team match writes also maintain legacy `team1_id`, `team2_id`, and `winner_team_id`. Scores remain in `score1` and `score2`.
+
+`tournament_groups` and `tournament_group_members` store group-stage definitions and membership; the current UI does not use them yet. `match_progressions` stores winner/loser outcome links. The current single-elimination adapter reads winner links and writes them alongside legacy `next_match_id`/`next_slot` fields.
+
+Migration `0005_multiformat_api_policies.sql` grants anon CRUD access to the new tables, matching the existing public-access model. These policies do not provide per-user isolation.

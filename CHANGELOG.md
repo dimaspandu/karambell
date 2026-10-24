@@ -2,6 +2,12 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.0.3] - 2026-10-24
+
+### Changed
+
+- Updated the `historypp` submodule to `v2.0.7` and switched the app router to engine `1.0.6`.
+
 ## [1.0.2] - 2026-10-24
 
 ### Changed

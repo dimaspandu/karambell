@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createCompetitionRepository } from "../src/repositories/competitionRepository.js";
 import { createSupabaseProvider } from "../src/providers/supabase.js";
-import { googleSheetsProvider } from "../src/providers/googleSheets.js";
 
 const current = {
   id: "session-1", name: "Cup", format: "single", isTeamCompetition: false, status: "in_progress",
@@ -64,7 +63,7 @@ test("repository rejects an unexpected provider response after submission", asyn
   await assert.rejects(repository.addParticipant({ competition: current, name: "Rahman" }), /tidak memuat detail kompetisi/);
 });
 
-test("Google Sheets and Supabase adapters honor the same addParticipant repository operation", async () => {
+test("Supabase adapter adds a participant and returns normalized competition detail", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];
   const supabasePlayers = [{ id: "p1", name: "Dimas", session_id: "session-1" }];
@@ -93,15 +92,6 @@ test("Google Sheets and Supabase adapters honor the same addParticipant reposito
     assert.deepEqual(supabaseResult.participants.map(participant => participant.name), ["Dimas", "Rahman"]);
     assert.deepEqual(calls.find(call => call.table === "players" && call.method === "POST").body, { session_id: "session-1", name: "Rahman" });
 
-    const googleCalls = [];
-    globalThis.fetch = async (path, options = {}) => {
-      googleCalls.push({ path: String(path), body: options.body ? JSON.parse(options.body) : null });
-      return new Response(JSON.stringify({ ok: true, data: updated }), { status: 200 });
-    };
-    const googleRepository = createCompetitionRepository({ provider: googleSheetsProvider });
-    const googleResult = await googleRepository.addParticipant({ competition: current, name: "Rahman" });
-    assert.deepEqual(googleCalls, [{ path: "/api/participants", body: { session_id: "session-1", name: "Rahman" } }]);
-    assert.deepEqual(googleResult.participants.map(participant => participant.name), ["Dimas", "Rahman"]);
   } finally {
     globalThis.fetch = previousFetch;
   }

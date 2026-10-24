@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCompetitionRepository } from "../src/repositories/competitionRepository.js";
-import { googleSheetsProvider } from "../src/providers/googleSheets.js";
 import { createSupabaseProvider } from "../src/providers/supabase.js";
 
 const input = {
@@ -48,26 +47,6 @@ test("creation repository preserves provider errors and rejects unexpected resul
   await assert.rejects(failing.createCompetition(input), error => error === providerFailure);
   const malformed = makeRepository(async () => ({ session: { session_id: "new-session" }, participants: [], matches: [] })).repository;
   await assert.rejects(malformed.createCompetition(input), error => error.code === "COMPETITION_REFRESH_FAILED");
-});
-
-test("Google Sheets provider calls the existing createSession API with team format mapping", async () => {
-  const previousFetch = globalThis.fetch;
-  let request;
-  globalThis.fetch = async (path, options = {}) => {
-    request = { path: String(path), method: options.method, body: JSON.parse(options.body) };
-    return new Response(JSON.stringify({ ok: true, data: created }), { status: 200 });
-  };
-  try {
-    const repository = createCompetitionRepository({ provider: googleSheetsProvider });
-    const result = await repository.createCompetition(input);
-    assert.equal(result.id, "new-session");
-    assert.equal(request.path, "/api/sessions");
-    assert.equal(request.method, "POST");
-    assert.equal(request.body.format, "team_single_elimination");
-    assert.deepEqual(request.body.participants, input.participants);
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
 });
 
 test("Supabase creation persists related team records and returns a normalized bracket", async () => {

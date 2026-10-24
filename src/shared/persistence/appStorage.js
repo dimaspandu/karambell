@@ -40,7 +40,7 @@ export function rememberTeamSession(sessionId) {
   const ids = getTeamSessionIds();
   if (!ids.includes(String(sessionId))) ids.push(String(sessionId));
   try { getStorage()?.setItem(TEAM_SESSION_IDS_KEY, JSON.stringify(ids)); }
-  catch { /* Provider data remains the cross-device source of truth. */ }
+  catch { /* Supabase remains the cross-device source of truth. */ }
 }
 
 export function readTeamPairingDraft() {

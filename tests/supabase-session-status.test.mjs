@@ -1,35 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSupabaseProvider } from "../src/providers/supabase.js";
-import { googleSheetsProvider } from "../src/providers/googleSheets.js";
-
-const completeCompetition = {
-  session: { session_id: "session-1", status: "in_progress" },
-  participants: [],
-  matches: [{ match_id: "final-1", round: 1, winner_id: "team-2", status: "completed" }]
-};
-
-test("Google Sheets adapter persists the computed status with its session ID", async () => {
-  const previousFetch = globalThis.fetch;
-  const calls = [];
-  let savedStatus = "in_progress";
-  globalThis.fetch = async (path, options = {}) => {
-    const method = options.method || "GET";
-    const body = options.body ? JSON.parse(options.body) : null;
-    calls.push({ path: String(path), method, body });
-    if (String(path) === "/api/sessions/status") savedStatus = body.status;
-    const data = String(path) === "/api/session?session_id=session-1" ? { ...completeCompetition, session: { ...completeCompetition.session, status: savedStatus } } : {};
-    return new Response(JSON.stringify({ ok: true, data }), { status: 200 });
-  };
-
-  try {
-    await googleSheetsProvider.recordScore({ session_id: "session-1", match_id: "final-1", score1: 0, score2: 1 });
-    const statusCall = calls.find(call => call.path === "/api/sessions/status");
-    assert.deepEqual(statusCall.body, { session_id: "session-1", status: "completed" });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
 
 test("Supabase adapter persists status using the session row ID", async () => {
   const previousFetch = globalThis.fetch;
@@ -62,7 +33,6 @@ test("Supabase adapter persists status using the session row ID", async () => {
     globalThis.fetch = previousFetch;
   }
 });
-
 test("Supabase score operation stores scores and advances its winner into the configured slot", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];
@@ -99,29 +69,6 @@ test("Supabase score operation stores scores and advances its winner into the co
     assert.equal(matches[1].team1_id, "p2");
     assert.equal(result.matches[1].participant1_id, "p2");
     assert.ok(calls.some(call => call.table === "sessions" && call.method === "PATCH"));
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("Google Sheets winner operation retains its 1-0 indicator payload", async () => {
-  const previousFetch = globalThis.fetch;
-  const calls = [];
-  let savedStatus = "in_progress";
-  globalThis.fetch = async (path, options = {}) => {
-    const body = options.body ? JSON.parse(options.body) : null;
-    calls.push({ path: String(path), body });
-    if (String(path) === "/api/sessions/status") savedStatus = body.status;
-    const data = String(path) === "/api/session?session_id=session-1"
-      ? { ...completeCompetition, session: { ...completeCompetition.session, status: savedStatus } }
-      : {};
-    return new Response(JSON.stringify({ ok: true, data }), { status: 200 });
-  };
-  try {
-    const { googleSheetsProvider } = await import("../src/providers/googleSheets.js?winner-provider-contract");
-    await googleSheetsProvider.recordMatchWinner({ sessionId: "session-1", matchId: "final-1", winnerId: "team-2", participant1Id: "team-1", participant2Id: "team-2" });
-    const write = calls.find(call => call.path === "/api/matches/score");
-    assert.deepEqual(write.body, { session_id: "session-1", match_id: "final-1", score1: 0, score2: 1 });
   } finally {
     globalThis.fetch = previousFetch;
   }

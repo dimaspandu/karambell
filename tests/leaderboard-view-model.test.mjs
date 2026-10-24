@@ -20,8 +20,8 @@ test("view state moves from loading to successful route-specific data", () => {
 
 test("view state exposes errors and supports a retry transition", () => {
   let state = leaderboardStateReducer(initialLeaderboardState, { type: "load-start", requestId: 1 });
-  state = leaderboardStateReducer(state, { type: "load-error", requestId: 1, error: new Error("Provider unavailable") });
-  assert.deepEqual(selectLeaderboardPage(state, { name: "leaderboard" }), { type: "error", message: "Provider unavailable" });
+  state = leaderboardStateReducer(state, { type: "load-error", requestId: 1, error: new Error("Supabase unavailable") });
+  assert.deepEqual(selectLeaderboardPage(state, { name: "leaderboard" }), { type: "error", message: "Supabase unavailable" });
   state = leaderboardStateReducer(state, { type: "load-start", requestId: 2 });
   assert.equal(selectLeaderboardPage(state, { name: "leaderboard" }).type, "loading");
   state = leaderboardStateReducer(state, { type: "load-success", requestId: 2, data });

@@ -3,22 +3,30 @@ import { getDownstreamMatchPath, validateMatchScore, validateMatchWinner } from 
 import { validateParticipantAddition } from "../domain/participantValidation.js";
 
 export function createSupabaseProvider({ url, key }) {
-  if (!url || !key) throw new Error("Provider Supabase dipilih, tetapi supabaseUrl atau supabaseAnonKey belum diatur di src/config/data.js.");
-  const base = `${url.replace(/\/$/, "")}/rest/v1`;
+  const base = url ? `${url.replace(/\/$/, "")}/rest/v1` : null;
 
   async function query(table, params = {}, { method = "GET", body, prefer = "return=representation", range } = {}) {
+    if (!base || !key) throw new Error("Supabase belum dikonfigurasi. Atur supabaseUrl dan supabaseAnonKey di src/config/data.js.");
     const target = new URL(`${base}/${table}`);
     for (const [name, value] of Object.entries(params)) target.searchParams.set(name, String(value));
-    const response = await fetch(target, {
-      method,
-      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json", Prefer: prefer, ...(range ? { Range: `${range[0]}-${range[1]}`, "Range-Unit": "items" } : {}) },
-      body: body === undefined ? undefined : JSON.stringify(body)
-    });
+    let response;
+    try {
+      response = await fetch(target, {
+        method,
+        headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json", Prefer: prefer, ...(range ? { Range: `${range[0]}-${range[1]}`, "Range-Unit": "items" } : {}) },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+    } catch (cause) {
+      const error = new Error(`Unable to reach Supabase while requesting ${table}. Check the project URL, network access, and browser console for CORS details.`, { cause });
+      error.code = "SUPABASE_NETWORK_ERROR";
+      throw error;
+    }
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const error = new Error(data?.message || data?.details || `Supabase ${table}: HTTP ${response.status}`);
       error.code = data?.code;
       error.constraint = data?.constraint;
+      error.status = response.status;
       throw error;
     }
     return data || [];
@@ -167,8 +175,7 @@ export function createSupabaseProvider({ url, key }) {
       }
     };
 
-    // Invalidate dependent results before recording the replacement result,
-    // matching the Apps Script provider's downstream reset behavior.
+    // Invalidate dependent results before recording the replacement result.
     for (const step of downstream) {
       const slotColumn = step.slot === "participant1" ? "team1_id" : "team2_id";
       await patchMatch(step.matchId, {

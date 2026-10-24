@@ -31,10 +31,8 @@ function normalizeParticipantError(error) {
  * @property {Array<{participant_id: string, name: string}>} participants
  * @property {Array<{match_id: string, round: number, match_number: number, participant1_id: string|null, participant2_id: string|null, winner_id: string|null, status: string}>} matches
  *
- * `listLeaderboardCompetitions()` on either provider returns this canonical
- * shape. Supabase maps team_members and winner_team_id into it; Google Sheets
- * maps participant and winner IDs into it. Provider-specific scores are kept
- * out of display DTOs because their team-result semantics are not comparable.
+ * The Supabase data layer maps team_members and winner_team_id into this
+ * canonical shape. Team-result score semantics are kept out of leaderboard DTOs.
  */
 export function createCompetitionRepository({ provider, isTeamSessionKnown = () => false }) {
   if (typeof provider?.listCompetitions !== "function" || typeof provider?.getCompetition !== "function" || typeof provider?.listLeaderboardCompetitions !== "function" || typeof provider?.createCompetition !== "function" || typeof provider?.addPlayer !== "function" || typeof provider?.recordMatchScore !== "function" || typeof provider?.recordMatchWinner !== "function") {

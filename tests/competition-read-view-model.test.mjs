@@ -26,7 +26,7 @@ test("list loading exits loading on failure and a fresh retry can recover", asyn
   const repository = {
     async listCompetitions() {
       attempts += 1;
-      if (attempts === 1) throw new Error("Sheets unavailable");
+      if (attempts === 1) throw new Error("Supabase unavailable");
       return [first];
     }
   };
@@ -34,13 +34,51 @@ test("list loading exits loading on failure and a fresh retry can recover", asyn
   dispatch({ type: "load-start", requestId: 1 });
   await loadCompetitionList({ repository, dispatch, requestId: 1 });
   assert.equal(state.status, "error");
-  assert.equal(state.error.message, "Sheets unavailable");
+  assert.equal(state.error.message, "Supabase unavailable");
 
   dispatch({ type: "load-start", requestId: 2 });
   await loadCompetitionList({ repository, dispatch, requestId: 2 });
   assert.equal(attempts, 2);
   assert.equal(state.status, "success");
   assert.deepEqual(state.competitions, [first]);
+});
+
+test("mutation upserts replace the competition and propagate refreshed downstream match data", () => {
+  const original = {
+    id: "cup",
+    matches: [
+      { id: "quarterfinal", winnerId: "team-a", status: "completed" },
+      { id: "semifinal", participant1Id: "team-a", winnerId: null, status: "pending" },
+      { id: "final", participant1Id: null, winnerId: null, status: "pending" }
+    ]
+  };
+  const unrelated = { id: "other-cup", matches: [] };
+  const initial = { ...initialCompetitionListState, status: "success", requestId: 4, competitions: [original, unrelated] };
+  const afterFirstUpdate = {
+    ...original,
+    matches: [
+      { ...original.matches[0], winnerId: "team-b" },
+      { ...original.matches[1], participant1Id: "team-b" },
+      original.matches[2]
+    ]
+  };
+
+  const first = competitionListStateReducer(initial, { type: "upsert", competition: afterFirstUpdate });
+  assert.notEqual(first, initial);
+  assert.notEqual(first.competitions, initial.competitions);
+  assert.equal(first.competitions[0], afterFirstUpdate);
+  assert.equal(first.competitions[0].matches[0].winnerId, "team-b");
+  assert.equal(first.competitions[0].matches[1].participant1Id, "team-b");
+  assert.equal(first.competitions[1], unrelated);
+
+  const afterSecondUpdate = {
+    ...afterFirstUpdate,
+    matches: afterFirstUpdate.matches.map(match => match.id === "quarterfinal" ? { ...match, winnerId: "team-a" } : match)
+  };
+  const second = competitionListStateReducer(first, { type: "upsert", competition: afterSecondUpdate });
+  assert.equal(second.competitions.length, 2);
+  assert.equal(second.competitions[0].matches[0].winnerId, "team-a");
+  assert.equal(second.competitions[0].matches[1].participant1Id, "team-b");
 });
 
 test("detail selection follows the route and never exposes a previous session while loading", () => {

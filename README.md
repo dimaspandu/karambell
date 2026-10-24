@@ -12,7 +12,7 @@ React views → ViewModels → Competition repository → Supabase REST API
 
 The repository validates operations and maps Supabase rows to the app's competition model. The Supabase data layer owns REST requests, table queries, and row mapping. It uses the existing `sessions`, `players`, `teams`, `team_members`, and `matches` schema documented in [docs/data-providers/supabase/schema.md](docs/data-providers/supabase/schema.md). The app does not create or migrate the schema.
 
-Set `supabaseUrl` and `supabaseAnonKey` in `src/config/data.js`. The browser bundle may contain only the public anon or publishable key; never put a service-role key in client code. Row Level Security and table policies must allow the intended client operations.
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the environment. These `VITE_` values are bundled for browsers, so use only the public anon or publishable key; never use a service-role key. Row Level Security and table policies must allow the intended client operations.
 
 ## Development
 
@@ -50,4 +50,4 @@ The global leaderboard aggregates teams from completed team competitions by thei
 
 ## Deployment
 
-Netlify runs `pnpm build` and publishes `dist/`. The SPA fallback in `netlify.toml` and `public/_redirects` supports direct route refreshes. Supabase public configuration is bundled from `src/config/data.js`; redeploy after changing it. This app does not require an API proxy or server-side Supabase key.
+Vercel project settings: Framework Preset **Vite**, Build Command `pnpm build`, Output Directory `dist`, Install Command `pnpm install`. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as project environment variables for each deployment environment, then redeploy. `vercel.json` provides the SPA fallback; the history router displays its existing not-found message for unknown paths. Netlify's equivalent configuration remains available in `netlify.toml` and `public/_redirects`. This app does not require an API proxy or server-side Supabase key.

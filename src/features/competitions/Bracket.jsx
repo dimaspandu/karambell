@@ -147,7 +147,7 @@ export function Bracket({ competition, isTournamentCompleted, onEditScore, onCho
       ...sortedRounds(competition.matches.filter(match => match.stage === "main"), "knockout")
     ];
   } else if (competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN) {
-    columns = sortedRounds(competition.matches, "round-robin").map(column => ({ ...column, title: column.title.replace("Ronde", "Hari") }));
+    columns = sortedRounds(competition.matches, "round-robin").map(column => ({ ...column, title: `Ronde ${column.matches[0]?.round}` }));
   } else {
     columns = sortedRounds(competition.matches, "single");
   }

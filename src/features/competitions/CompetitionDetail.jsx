@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { getCompetitionProgress } from "../../domain/competitionProgress.js";
 import { getParticipant } from "../../domain/competitionModel.js";
 import { tournamentFormatLabel } from "../../domain/tournamentFormats.js";
@@ -59,7 +60,52 @@ function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseW
   </tbody></table></div>;
 }
 
-export function CompetitionDetail({ competition, activeTab, onNavigate, onAddParticipant, onEditScore, onChooseWinner, onExport }) {
+export function CompetitionDetail({ competition, activeTab, presentation: routePresentation, onPresentationChange, onNavigate, onAddParticipant, onEditScore, onChooseWinner, onExport }) {
+  const [presentation, setPresentation] = useState(routePresentation || null);
+  const [shareStatus, setShareStatus] = useState("");
+  const presentationRef = useRef(null);
+  const scrollPosition = useRef(0);
+  useEffect(() => {
+    setPresentation(routePresentation || null);
+  }, [routePresentation]);
+  useEffect(() => {
+    if (!presentation) return undefined;
+    scrollPosition.current = window.scrollY;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = event => { if (event.key === "Escape") setPresentation(null); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      window.scrollTo(0, scrollPosition.current);
+    };
+  }, [presentation]);
+  function openPresentation(view) {
+    setShareStatus("");
+    setPresentation(view);
+    onPresentationChange?.(view);
+  }
+  function closePresentation() {
+    setPresentation(null);
+    onPresentationChange?.(null);
+  }
+  async function shareBracket() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("presentation", "bracket");
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setShareStatus("Tautan bagan disalin.");
+    } catch {
+      setShareStatus("Gagal menyalin. Salin tautan dari bilah alamat.");
+    }
+  }
+  function enterBrowserFullscreen() {
+    const request = presentationRef.current?.requestFullscreen;
+    if (request) request.call(presentationRef.current).catch(() => setShareStatus("Mode layar penuh browser tidak tersedia; tampilan tetap terbuka."));
+    else setShareStatus("Mode layar penuh browser tidak tersedia; tampilan tetap terbuka.");
+  }
   const summary = getCompetitionProgress(competition.matches, competition);
   const champion = summary.championId ? getParticipant(competition, summary.championId) : null;
   const tabs = [
@@ -90,7 +136,7 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
       {tab.label}{tab.count != null && <> <span>{tab.count}</span></>}
     </button>)}</div>
     <section className={`tab-panel ${activeTab === "bracket" ? "tab-panel--active" : ""}`}>
-      <div className="bracket-toolbar"><div><h3>{competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Jadwal pertandingan" : competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Grup dan knockout" : competition.format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Winners, losers, dan final" : "Bagan pertandingan"}</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil pertandingan mengalir ke slot berikutnya." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span></div>
+      <div className="bracket-toolbar"><div><h3>{competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Jadwal pertandingan" : competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Grup dan knockout" : competition.format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Winners, losers, dan final" : "Bagan pertandingan"}</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil pertandingan mengalir ke slot berikutnya." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><div className="bracket-toolbar__actions"><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span><button type="button" className="button button--outline button--small" onClick={() => openPresentation("bracket")}>Tampilan layar penuh</button></div></div>
       <StandingsPanel competition={competition}/>
       <div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div>
       <div className="bracket-footer"><span>✦</span><div><strong>Perjalanan menuju juara</strong><p>Skor disimpan per pertandingan. Pemenang otomatis maju ke babak berikutnya.</p></div></div>
@@ -103,8 +149,9 @@ export function CompetitionDetail({ competition, activeTab, onNavigate, onAddPar
       <Participants competition={competition}/>
     </section>
     <section className={`tab-panel ${activeTab === "matches" ? "tab-panel--active" : ""}`}>
-      <div className="panel-heading"><div><h3>Daftar pertandingan</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil disimpan dan pemenang maju otomatis." : "Perbarui skor atau periksa status setiap pertandingan."}</p></div></div>
+      <div className="panel-heading"><div><h3>Daftar pertandingan</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil disimpan dan pemenang maju otomatis." : "Perbarui skor atau periksa status setiap pertandingan."}</p></div><button type="button" className="button button--outline button--small" onClick={() => openPresentation("table")}>Tabel layar penuh</button></div>
       <MatchTable competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>
     </section>
+    {presentation && <div className="tournament-presentation" ref={presentationRef} role="dialog" aria-modal="true" aria-label={presentation === "bracket" ? "Bagan kompetisi layar penuh" : "Tabel pertandingan layar penuh"}><header className="tournament-presentation__header"><div><span className="eyebrow">{competition.name}</span><h2>{presentation === "bracket" ? "Bagan dan klasemen" : "Daftar pertandingan"}</h2></div><div className="tournament-presentation__actions">{presentation === "bracket" && <><button type="button" className="button button--outline" onClick={shareBracket}>Salin tautan bagan</button><button type="button" className="button button--outline" onClick={enterBrowserFullscreen}>Mode layar penuh browser</button></>}<button type="button" className="button button--outline" onClick={closePresentation}>Tutup layar penuh <span aria-hidden="true">×</span></button></div></header>{shareStatus && <p className="tournament-presentation__status" role="status">{shareStatus}</p>}<main className="tournament-presentation__content">{presentation === "bracket" ? <><StandingsPanel competition={competition}/><div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div></> : <><StandingsPanel competition={competition}/><MatchTable competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></>}</main></div>}
   </>;
 }

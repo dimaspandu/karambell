@@ -5,7 +5,7 @@ import { printPlaybook } from "./playbookExport.js";
 import { useParticipantViewModel } from "../participants/useParticipantViewModel.js";
 import { useMatchViewModel } from "../matches/useMatchViewModel.js";
 
-export function CompetitionWorkspace({ competition, activeTab, loading, repository, upsertCompetition, retry, navigate, showToast }) {
+export function CompetitionWorkspace({ competition, activeTab, presentation, onPresentationChange, loading, repository, upsertCompetition, retry, navigate, showToast }) {
   const [participantOpen, setParticipantOpen] = useState(false);
   const [scoreMatchId, setScoreMatchId] = useState(null);
   const [winnerMatchId, setWinnerMatchId] = useState(null);
@@ -46,6 +46,8 @@ export function CompetitionWorkspace({ competition, activeTab, loading, reposito
     {loading ? <div className="empty-state"><h3>Memuat data kompetisi…</h3></div> : competition && <CompetitionDetail
       competition={competition}
       activeTab={activeTab}
+      presentation={presentation}
+      onPresentationChange={onPresentationChange}
       onNavigate={navigate}
       onAddParticipant={() => setParticipantOpen(true)}
       onEditScore={setScoreMatchId}

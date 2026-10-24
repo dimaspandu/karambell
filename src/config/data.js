@@ -1,5 +1,5 @@
-// The anon key is intentionally public; never put a service-role key in browser code.
+// Vite exposes these values to the browser. Configure only public Supabase credentials.
 export const dataConfig = {
-  supabaseUrl: "https://cbsfrfschpwwlaaifkwc.supabase.co",
-  supabaseAnonKey: "sb_publishable_QCHfuhE-k0p1GYgbv_QqQg_GDr5mKeu"
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL || "",
+  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ""
 };

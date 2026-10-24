@@ -11,6 +11,8 @@ function safeDecode(segment) {
 
 function resolveLocation() {
   const url = new URL(window.location.href);
+  const requestedPresentation = url.searchParams.get("presentation");
+  const presentation = ["bracket", "table"].includes(requestedPresentation) ? requestedPresentation : null;
   const pathname = url.pathname.replace(/\/$/, "") || "/";
   if (pathname === "/") {
     const legacyId = url.searchParams.get("session_id");
@@ -31,7 +33,7 @@ function resolveLocation() {
   const detail = pathname.match(/^\/competitions\/([^/]+)$/);
   if (detail) {
     const sessionId = safeDecode(detail[1]);
-    return sessionId ? { name: "competition-detail", sessionId, tab: "bracket", error: null } : { name: "competitions", sessionId: null, tab: null, error: "ID kompetisi pada URL tidak valid." };
+    return sessionId ? { name: "competition-detail", sessionId, tab: "bracket", presentation, error: null } : { name: "competitions", sessionId: null, tab: null, error: "ID kompetisi pada URL tidak valid." };
   }
   for (const name of ["participants", "bracket", "matches"]) {
     const base = `/${name}`;
@@ -39,7 +41,7 @@ function resolveLocation() {
     const match = pathname.match(new RegExp(`^${base}/([^/]+)$`));
     if (match) {
       const sessionId = safeDecode(match[1]);
-      return sessionId ? { name, sessionId, tab: name, error: null } : { name: "competitions", sessionId: null, tab: null, error: "ID kompetisi pada URL tidak valid." };
+      return sessionId ? { name, sessionId, tab: name, presentation, error: null } : { name: "competitions", sessionId: null, tab: null, error: "ID kompetisi pada URL tidak valid." };
     }
   }
   return { name: "competitions", sessionId: null, tab: null, error: `Rute "${pathname}" tidak dikenal.` };
@@ -89,9 +91,18 @@ function navigate(name, params = {}, { replace = false } = {}) {
   return true;
 }
 
+function setPresentation(presentation) {
+  const url = new URL(window.location.href);
+  if (presentation) url.searchParams.set("presentation", presentation);
+  else url.searchParams.delete("presentation");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  engine.navigateReplace(next, { karambell: true });
+}
+
 export const historyRouter = {
   start: startRouter,
   navigate,
+  setPresentation,
   subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   getSnapshot() { return snapshot; }
 };

@@ -2,6 +2,20 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.0.4] - 2026-10-24
+
+### Added
+
+- Team tournament formats for double elimination, round robin, and group + knockout.
+- Group and round-robin standings, winner/loser progression, and format-aware match labels.
+- Bracket connectors for progression paths, group qualifiers, finals, and champion display.
+
+### Fixed
+
+- Double-elimination loser-bracket progression now includes the loser from the winners final.
+- Bracket layout alignment and spacing for round-robin and group + knockout schedules.
+- Preserve the selected tournament format after creation.
+
 ## [1.0.3] - 2026-10-24
 
 ### Changed

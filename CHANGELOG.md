@@ -2,6 +2,18 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.0.2] - 2026-10-24
+
+### Changed
+
+- Made Supabase the application's only data source and removed provider selection.
+- Updated competition and match state immediately after successful winner changes, including downstream bracket updates.
+- Hide winner-change actions after the tournament is complete.
+
+### Removed
+
+- Retired the Google Sheets adapter, Apps Script proxy and setup documentation.
+
 ## [1.0.1] - 2026-10-21
 
 ### Added

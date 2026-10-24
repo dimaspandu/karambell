@@ -1,3 +1,4 @@
 [submodule "src/libs/historypp"]
 	path = src/libs/historypp
 	url = https://github.com/dimaspandu/historypp.git
+	branch = main

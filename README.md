@@ -30,10 +30,16 @@ pnpm test
 pnpm build
 ```
 
-The `historypp` router is a pinned Git submodule at `src/libs/historypp`. Initialize it after cloning:
+The `historypp` router is a Git submodule at `src/libs/historypp`, tracking the upstream `main` branch for updates. The current pinned commit is `60109d78b929be8b4f86582b7590824e68a2538e` (`v2.0.7`, engine `v1.0.6`). Initialize the recorded commit after cloning:
 
 ```bash
 git submodule update --init --recursive
+```
+
+Submodules pin a commit so every checkout builds the same router version. To move Karambell to the latest upstream `main`, run this command, review the changes, then commit the updated submodule reference:
+
+```bash
+git submodule update --remote --merge src/libs/historypp
 ```
 
 ## Competition behavior

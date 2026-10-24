@@ -1,4 +1,4 @@
-import { createEngine } from "../libs/historypp/src/1.0.5/index.js";
+import { createEngine } from "../libs/historypp/src/1.0.6/index.js";
 
 const engine = createEngine();
 const listeners = new Set();

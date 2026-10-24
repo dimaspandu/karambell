@@ -2,6 +2,18 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.0.5] - 2026-10-25
+
+### Added
+
+- Fullscreen bracket, standings, and match table presentations, including shareable links that open the bracket view.
+- Configurable match countdown timer with 5, 10, 15, 20, and 30 minute durations.
+- Vercel SPA deployment configuration and Vite environment variables for public Supabase credentials.
+
+### Changed
+
+- Round-robin schedules are grouped by numbered rounds instead of days.
+
 ## [1.0.4] - 2026-10-24
 
 ### Added

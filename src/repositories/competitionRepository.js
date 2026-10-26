@@ -3,6 +3,7 @@ import { normalizeCompetition } from "../domain/competitionModel.js";
 import { validateParticipantAddition } from "../domain/participantValidation.js";
 import { getDownstreamMatchPath, validateMatchScore, validateMatchWinner } from "../domain/matchRules.js";
 import { validateCompetitionCreation } from "../domain/teamPairing.js";
+import { validateTeamShuffleCandidate } from "../domain/teamShuffle.js";
 
 function normalizeParticipantError(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -149,6 +150,37 @@ export function createCompetitionRepository({ provider, isTeamSessionKnown = () 
       const [participant1Id, participant2Id] = [outcome.match.participant1Id, outcome.match.participant2Id];
       const payload = await provider.recordMatchWinner({ sessionId: competition.id, matchId: String(matchId), winnerId: outcome.winnerId, participant1Id, participant2Id });
       return normalizeMatchResult(payload, competition, matchId, outcome.winnerId);
+    },
+    async shuffleTeamPlayers({ competition, assignments }) {
+      const validation = validateTeamShuffleCandidate(competition, assignments);
+      if (!validation.valid) {
+        const error = new Error(validation.reason);
+        error.code = "TEAM_SHUFFLE_VALIDATION";
+        throw error;
+      }
+      if (typeof provider.shuffleTeamPlayers !== "function") throw new Error("Penyimpanan acak pemain belum tersedia.");
+      const payload = await provider.shuffleTeamPlayers({
+        sessionId: competition.id,
+        assignments: assignments.map(assignment => ({
+          player_id: assignment.playerId,
+          from_team_id: assignment.fromTeamId,
+          to_team_id: assignment.toTeamId,
+          from_position: assignment.fromPosition,
+          to_position: assignment.toPosition
+        }))
+      });
+      const result = normalizeProviderCompetition(payload);
+      if (result.id !== competition.id) throw new Error("Kompetisi yang diperbarui tidak sesuai.");
+      const updatedTeamByPlayer = new Map(result.participants.flatMap(participant => (participant.members || []).map(member => [member.playerId, participant.sourceId])));
+      if (assignments.some(assignment => updatedTeamByPlayer.get(String(assignment.playerId)) !== String(assignment.toTeamId))) {
+        const error = new Error("Susunan pemain tersimpan tetapi belum terkonfirmasi saat data dimuat ulang.");
+        error.code = "TEAM_SHUFFLE_REFRESH_FAILED";
+        throw error;
+      }
+      const scheduleBefore = competition.matches.map(match => [match.id, match.round, match.participant1Id, match.participant2Id, match.winnerId, match.score1, match.score2, match.status, match.nextMatchId, match.nextSlot]);
+      const scheduleAfter = result.matches.map(match => [match.id, match.round, match.participant1Id, match.participant2Id, match.winnerId, match.score1, match.score2, match.status, match.nextMatchId, match.nextSlot]);
+      if (JSON.stringify(scheduleAfter) !== JSON.stringify(scheduleBefore)) throw new Error("Pengacakan pemain tidak boleh mengubah jadwal pertandingan.");
+      return result;
     },
     async getLeaderboardData() {
       const competitions = await provider.listLeaderboardCompetitions();

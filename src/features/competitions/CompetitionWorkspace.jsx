@@ -38,6 +38,18 @@ export function CompetitionWorkspace({ competition, activeTab, presentation, onP
   }, [retry, showToast]);
   const matchViewModel = useMatchViewModel({ repository, competition, onSuccess: handleMatchSuccess, onError: handleMatchError });
 
+  const handleShufflePlayers = useCallback(async assignments => {
+    try {
+      const updated = await repository.shuffleTeamPlayers({ competition, assignments });
+      upsertCompetition(updated);
+      showToast("Kombinasi pemain berhasil diperbarui. Jadwal pertandingan tetap sama.");
+    } catch (error) {
+      retry();
+      showToast(error.message || "Gagal mengacak kombinasi pemain.");
+      throw error;
+    }
+  }, [competition, repository, retry, showToast, upsertCompetition]);
+
   function exportPlaybook() {
     if (competition && !printPlaybook(competition)) showToast("Izinkan pop-up untuk membuat Playbook PDF.");
   }
@@ -53,6 +65,7 @@ export function CompetitionWorkspace({ competition, activeTab, presentation, onP
       onEditScore={setScoreMatchId}
       onChooseWinner={setWinnerMatchId}
       onExport={exportPlaybook}
+      onShufflePlayers={handleShufflePlayers}
     />}
     <ScoreDialog open={Boolean(scoreMatchId)} onOpenChange={open => { if (!open) setScoreMatchId(null); }} competition={competition} match={competition?.matches.find(match => match.id === scoreMatchId) || null} onSubmit={matchViewModel.recordScore} saving={matchViewModel.saving === "score"}/>
     <TeamWinnerDialog open={Boolean(winnerMatchId)} onOpenChange={open => { if (!open) setWinnerMatchId(null); }} competition={competition} match={competition?.matches.find(match => match.id === winnerMatchId) || null} onSubmit={matchViewModel.recordWinner} saving={matchViewModel.saving === "winner"}/>

@@ -40,6 +40,20 @@ export function createSupabaseProvider({ url, key }) {
 
   const byId = id => `eq.${id}`;
 
+  async function shuffleTeamPlayers({ sessionId, assignments }) {
+    if (!base || !key) throw new Error("Supabase belum dikonfigurasi.");
+    const target = new URL(`${base}/rpc/shuffle_team_players`);
+    let response;
+    try {
+      response = await fetch(target, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ p_session_id: sessionId, p_assignments: assignments }) });
+    } catch (cause) { throw new Error("Gagal menghubungi Supabase untuk mengacak pemain.", { cause }); }
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || "Susunan pemain berubah atau tidak lagi memenuhi syarat. Muat ulang lalu coba lagi.");
+    }
+    return getCompetition(sessionId);
+  }
+
   async function listLeaderboardCompetitions() {
     const sessions = [];
     for (let offset = 0; ; offset += 1000) {
@@ -71,9 +85,11 @@ export function createSupabaseProvider({ url, key }) {
     const participants = participantRows.map(participant => {
       if (participant.participant_mode === "team" || participant.team_id) {
         const team = teams.find(row => String(row.id) === String(participant.team_id));
-        const names = members.filter(member => String(member.team_id) === String(participant.team_id))
-          .map(member => players.find(player => String(player.id) === String(member.player_id))?.name).filter(Boolean);
-        return { participant_id: participant.id, source_id: participant.team_id, source_type: "team", name: names.join(" & ") || team?.name || "Tim", seed: team?.seed || 0 };
+        const teamMembers = members.filter(member => String(member.team_id) === String(participant.team_id))
+          .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+          .map(member => ({ player_id: String(member.player_id), name: players.find(player => String(player.id) === String(member.player_id))?.name || "", position: member.position ?? null }));
+        const names = teamMembers.map(member => member.name).filter(Boolean);
+        return { participant_id: participant.id, source_id: participant.team_id, source_type: "team", name: names.join(" & ") || team?.name || "Tim", seed: team?.seed || 0, members: teamMembers };
       }
       const player = players.find(row => String(row.id) === String(participant.player_id));
       return { participant_id: participant.id, source_id: participant.player_id, source_type: "individual", name: player?.name || "Peserta", seed: player?.seed || 0 };
@@ -377,6 +393,7 @@ export function createSupabaseProvider({ url, key }) {
       return listLeaderboardCompetitions();
     },
     getCompetition,
+    shuffleTeamPlayers,
     recordMatchScore,
     recordMatchWinner,
     async createCompetition(input) {

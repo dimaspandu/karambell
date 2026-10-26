@@ -245,6 +245,11 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d5a834; outline-offs
 .team-preview__item { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 7px 8px; border-radius: 7px; background: white; font-size: 10px; }
 .team-preview__item span { flex: 0 0 auto; color: #7b887b; font-weight: 800; }
 .team-preview__item strong { min-width: 0; overflow-wrap: anywhere; color: #345b41; text-align: right; }
+.team-preview__item--shuffle { align-items: flex-start; }
+.team-preview__item--shuffle > div { display: grid; gap: 4px; text-align: right; }
+.team-preview__item--shuffle small { color: #7b887b; font-size: 10px; }
+.standings-share { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.standings-share > span { color: #748176; font-size: 11px; }
 [hidden] { display: none !important; }
 .modal__actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 4px; }
 .score-intro { margin: -10px 0 18px; font-size: 12px; }

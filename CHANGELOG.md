@@ -2,6 +2,17 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.1.0] - 2026-10-26
+
+### Added
+
+- Safe player-combination shuffling between teams that have not played, with preview, alternate candidates, and atomic Supabase validation.
+- WhatsApp-ready standings, points, and upcoming-match summaries for round-robin and group competitions.
+
+### Fixed
+
+- Corrected the close icon encoding in the player shuffle dialog.
+
 ## [1.0.5] - 2026-10-25
 
 ### Added

@@ -10,7 +10,7 @@ The app uses Supabase as its only data source. The flow is:
 React views → ViewModels → Competition repository → Supabase REST API
 ```
 
-The repository validates operations and maps Supabase rows to the app's competition model. The Supabase data layer owns REST requests, table queries, and row mapping. It uses the existing `sessions`, `players`, `teams`, `team_members`, and `matches` schema documented in [docs/data-providers/supabase/schema.md](docs/data-providers/supabase/schema.md). The app does not create or migrate the schema.
+The repository validates operations and maps Supabase rows to the app's competition model. The Supabase data layer owns REST requests, table queries, and row mapping. It uses the `sessions`, `players`, `teams`, `team_members`, `competition_participants`, `matches`, `tournament_groups`, `tournament_group_members`, and `match_progressions` tables described in [the Supabase schema guide](docs/data-providers/supabase/schema.md). `supabase/schema.sql` is a catalog snapshot for reference, not an executable setup script. The app does not create or migrate the schema; apply database changes separately and verify them against the live project.
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the environment. These `VITE_` values are bundled for browsers, so use only the public anon or publishable key; never use a service-role key. Row Level Security and table policies must allow the intended client operations.
 

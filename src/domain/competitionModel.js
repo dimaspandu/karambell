@@ -5,7 +5,12 @@ export function normalizeCompetition(payload, { isTeamSessionKnown = false } = {
     name: String(participant.name || ""),
     seed: Number(participant.seed || 0),
     sourceId: participant.source_id == null ? null : String(participant.source_id),
-    sourceType: participant.source_type || null
+    sourceType: participant.source_type || null,
+    ...(Array.isArray(participant.members) ? { members: participant.members.map(member => ({
+      playerId: String(member.player_id ?? member.playerId ?? member.id ?? ""),
+      name: String(member.name || ""),
+      position: member.position == null ? null : Number(member.position)
+    })) } : {})
   }));
   const matches = (payload.matches || []).map(match => ({
     id: String(match.match_id),

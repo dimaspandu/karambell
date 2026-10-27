@@ -170,6 +170,20 @@ export function TeamWinnerDialog({ open, onOpenChange, competition, match, onSub
   </Modal>;
 }
 
+export function TeamPlayerShuffleDialog({ open, onOpenChange, teams, candidate, error, saving, onShuffleAgain, onSubmit }) {
+  const teamLabel = new Map(teams.map((team, index) => [team.teamId, `Tim ${String(index + 1).padStart(2, "0")}`]));
+  return <Modal id="team-player-shuffle-modal" open={open} onOpenChange={onOpenChange}>
+    <form className="modal__form" onSubmit={event => { event.preventDefault(); onSubmit(); }}>
+      <div className="modal__heading"><div><span className="eyebrow">SUSUNAN PEMAIN</span><h2>Acak Pemain</h2></div><button type="button" className="icon-button" onClick={() => onOpenChange(false)} aria-label="Tutup" disabled={saving}>&times;</button></div>
+      {candidate ? <><p className="score-intro">Jadwal dan hasil pertandingan tidak berubah. Pemain hanya berpindah di antara tim yang belum bermain.</p>
+        <div className="team-pairing__preview">{candidate.teams.map(team => <article className="team-preview__item team-preview__item--shuffle" key={team.teamId}><span>{teamLabel.get(team.teamId) || team.name}</span><div><small>Saat ini: {team.currentMembers.map(member => member.name).join(" & ")}</small><strong>Usulan: {team.proposedMembers.map(member => member.name).join(" & ")}</strong></div></article>)}</div>
+      </> : <p role="status">Kandidat pengacakan tidak tersedia. Muat ulang lalu coba lagi.</p>}
+      {error && <p className="form-note form-note--error" role="alert">{error}</p>}
+      <div className="modal__actions"><button type="button" className="button button--outline" onClick={onShuffleAgain} disabled={saving || !candidate}>Acak Lagi</button><button type="button" className="button button--outline" onClick={() => onOpenChange(false)} disabled={saving}>Batal</button><button type="submit" className="button button--primary" disabled={saving || !candidate}>{saving ? "Menyimpan…" : "Simpan Perubahan"}</button></div>
+    </form>
+  </Modal>;
+}
+
 export function ParticipantDialog({ open, onOpenChange, onSubmit, saving, error, onErrorClear }) {
   const [name, setName] = useState("");
   return <Modal id="participant-modal" className="modal--compact" open={open} onOpenChange={onOpenChange}>

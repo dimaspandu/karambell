@@ -6,6 +6,9 @@ import { TOURNAMENT_FORMATS } from "../../domain/tournamentFormats.js";
 import { getTournamentStandings } from "../../domain/tournamentStandings.js";
 import { formatDate, initials, matchRoundName } from "../../shared/presentation/competitionFormatters.js";
 import { Bracket } from "./Bracket.jsx";
+import { generateTeamShuffleCandidates } from "../../domain/teamShuffle.js";
+import { TeamPlayerShuffleDialog } from "./Dialogs.jsx";
+import { whatsappCompetitionUrl } from "./whatsAppCompetitionMessage.js";
 
 function competitorInitials(competition, participant) {
   return competition.isTeamCompetition ? participant.name.split(" & ").map(initials).join("&") : initials(participant.name);
@@ -33,9 +36,15 @@ function StandingsTable({ competition, group = null }) {
   </tbody></table></div>;
 }
 
+function WhatsAppStandingsAction({ competition }) {
+  const url = whatsappCompetitionUrl(competition);
+  if (!url) return null;
+  return <div className="standings-share"><a className="button button--outline button--small" href={url} target="_blank" rel="noopener noreferrer">Bagikan klasemen &amp; jadwal ke WhatsApp</a><span>Pesan berisi klasemen dan hingga 20 pertandingan pending berikutnya.</span></div>;
+}
+
 function StandingsPanel({ competition }) {
-  if (competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN) return <section className="standings-panel"><h3>Klasemen</h3><p>Urutan berdasarkan poin kemenangan, head-to-head untuk dua tim yang imbang, lalu seed.</p><StandingsTable competition={competition}/></section>;
-  if (competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT) return <section className="standings-panel"><h3>Klasemen grup</h3><p>Dua tim teratas setiap grup lolos ke knockout. Peringkat seri memakai head-to-head lalu seed.</p><div className="standings-grid">{competition.groups.map(group => <div key={group.id}><h4>{group.name}</h4><StandingsTable competition={competition} group={group}/></div>)}</div></section>;
+  if (competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN) return <section className="standings-panel"><h3>Klasemen</h3><p>Urutan berdasarkan poin kemenangan, head-to-head untuk dua tim yang imbang, lalu seed.</p><StandingsTable competition={competition}/><WhatsAppStandingsAction competition={competition}/></section>;
+  if (competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT) return <section className="standings-panel"><h3>Klasemen grup</h3><p>Dua tim teratas setiap grup lolos ke knockout. Peringkat seri memakai head-to-head lalu seed.</p><div className="standings-grid">{competition.groups.map(group => <div key={group.id}><h4>{group.name}</h4><StandingsTable competition={competition} group={group}/></div>)}</div><WhatsAppStandingsAction competition={competition}/></section>;
   return null;
 }
 
@@ -60,9 +69,13 @@ function MatchTable({ competition, isTournamentCompleted, onEditScore, onChooseW
   </tbody></table></div>;
 }
 
-export function CompetitionDetail({ competition, activeTab, presentation: routePresentation, onPresentationChange, onNavigate, onAddParticipant, onEditScore, onChooseWinner, onExport }) {
+export function CompetitionDetail({ competition, activeTab, presentation: routePresentation, onPresentationChange, onNavigate, onAddParticipant, onEditScore, onChooseWinner, onExport, onShufflePlayers }) {
   const [presentation, setPresentation] = useState(routePresentation || null);
   const [shareStatus, setShareStatus] = useState("");
+  const [teamShuffle, setTeamShuffle] = useState(null);
+  const [teamShuffleIndex, setTeamShuffleIndex] = useState(0);
+  const [teamShuffleError, setTeamShuffleError] = useState("");
+  const [teamShuffleSaving, setTeamShuffleSaving] = useState(false);
   const presentationRef = useRef(null);
   const scrollPosition = useRef(0);
   useEffect(() => {
@@ -106,6 +119,24 @@ export function CompetitionDetail({ competition, activeTab, presentation: routeP
     if (request) request.call(presentationRef.current).catch(() => setShareStatus("Mode layar penuh browser tidak tersedia; tampilan tetap terbuka."));
     else setShareStatus("Mode layar penuh browser tidak tersedia; tampilan tetap terbuka.");
   }
+  function beginPlayerShuffle() {
+    setTeamShuffle(generateTeamShuffleCandidates(competition));
+    setTeamShuffleIndex(0);
+    setTeamShuffleError("");
+  }
+  function shufflePlayersAgain() {
+    if (!teamShuffle?.candidates?.length) return;
+    setTeamShuffleIndex(index => (index + 1) % teamShuffle.candidates.length);
+    setTeamShuffleError("");
+  }
+  async function savePlayerShuffle() {
+    const candidate = teamShuffle?.candidates?.[teamShuffleIndex];
+    if (!candidate || teamShuffleSaving) return;
+    setTeamShuffleSaving(true);
+    try { await onShufflePlayers(candidate.assignments); setTeamShuffle(null); }
+    catch (error) { setTeamShuffleError(error.message || "Gagal menyimpan susunan pemain."); }
+    finally { setTeamShuffleSaving(false); }
+  }
   const summary = getCompetitionProgress(competition.matches, competition);
   const champion = summary.championId ? getParticipant(competition, summary.championId) : null;
   const tabs = [
@@ -136,7 +167,7 @@ export function CompetitionDetail({ competition, activeTab, presentation: routeP
       {tab.label}{tab.count != null && <> <span>{tab.count}</span></>}
     </button>)}</div>
     <section className={`tab-panel ${activeTab === "bracket" ? "tab-panel--active" : ""}`}>
-      <div className="bracket-toolbar"><div><h3>{competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Jadwal pertandingan" : competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Grup dan knockout" : competition.format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Winners, losers, dan final" : "Bagan pertandingan"}</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil pertandingan mengalir ke slot berikutnya." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><div className="bracket-toolbar__actions"><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span><button type="button" className="button button--outline button--small" onClick={() => openPresentation("bracket")}>Tampilan layar penuh</button></div></div>
+      <div className="bracket-toolbar"><div><h3>{competition.format === TOURNAMENT_FORMATS.ROUND_ROBIN ? "Jadwal pertandingan" : competition.format === TOURNAMENT_FORMATS.GROUP_KNOCKOUT ? "Grup dan knockout" : competition.format === TOURNAMENT_FORMATS.DOUBLE_ELIMINATION ? "Winners, losers, dan final" : "Bagan pertandingan"}</h3><p>{competition.isTeamCompetition ? "Pilih tim yang menang. Hasil pertandingan mengalir ke slot berikutnya." : "Tekan kartu pertandingan untuk memasukkan atau memperbarui skor."}</p></div><div className="bracket-toolbar__actions"><span className="hint"><span className="hint__dot"/> Pemenang ditandai hijau</span>{competition.isTeamCompetition && <button type="button" className="button button--outline button--small" onClick={beginPlayerShuffle}>Acak Pemain</button>}<button type="button" className="button button--outline button--small" onClick={() => openPresentation("bracket")}>Tampilan layar penuh</button></div></div>
       <StandingsPanel competition={competition}/>
       <div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div>
       <div className="bracket-footer"><span>✦</span><div><strong>Perjalanan menuju juara</strong><p>Skor disimpan per pertandingan. Pemenang otomatis maju ke babak berikutnya.</p></div></div>
@@ -153,5 +184,6 @@ export function CompetitionDetail({ competition, activeTab, presentation: routeP
       <MatchTable competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/>
     </section>
     {presentation && <div className="tournament-presentation" ref={presentationRef} role="dialog" aria-modal="true" aria-label={presentation === "bracket" ? "Bagan kompetisi layar penuh" : "Tabel pertandingan layar penuh"}><header className="tournament-presentation__header"><div><span className="eyebrow">{competition.name}</span><h2>{presentation === "bracket" ? "Bagan dan klasemen" : "Daftar pertandingan"}</h2></div><div className="tournament-presentation__actions">{presentation === "bracket" && <><button type="button" className="button button--outline" onClick={shareBracket}>Salin tautan bagan</button><button type="button" className="button button--outline" onClick={enterBrowserFullscreen}>Mode layar penuh browser</button></>}<button type="button" className="button button--outline" onClick={closePresentation}>Tutup layar penuh <span aria-hidden="true">×</span></button></div></header>{shareStatus && <p className="tournament-presentation__status" role="status">{shareStatus}</p>}<main className="tournament-presentation__content">{presentation === "bracket" ? <><StandingsPanel competition={competition}/><div className="bracket-scroll"><Bracket competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></div></> : <><StandingsPanel competition={competition}/><MatchTable competition={competition} isTournamentCompleted={summary.isComplete} onEditScore={onEditScore} onChooseWinner={onChooseWinner}/></>}</main></div>}
+    <TeamPlayerShuffleDialog open={Boolean(teamShuffle)} onOpenChange={open => { if (!open && !teamShuffleSaving) setTeamShuffle(null); }} teams={competition.participants.filter(participant => participant.sourceType === "team").map(participant => ({ teamId: participant.sourceId, name: participant.name }))} candidate={teamShuffle?.candidates?.[teamShuffleIndex] || null} error={teamShuffle?.reason || teamShuffleError} saving={teamShuffleSaving} onShuffleAgain={shufflePlayersAgain} onSubmit={savePlayerShuffle}/>
   </>;
 }

@@ -1,6 +1,6 @@
 # Supabase schema reference
 
-This documents the Supabase schema used by Karambell. It is a reference for the current data-access layer, not a migration script; review it against the target project's live database before making schema changes. Configure Row Level Security and policies separately before exposing tables through the Supabase REST API.
+This documents the tables used by Karambell's current Supabase data-access layer. [`supabase/schema.sql`](../../../supabase/schema.sql) is a catalog snapshot supplied from the project database, not a migration or setup script. It is explicitly marked context-only and its dumped foreign-key clauses are not guaranteed to be executable as written. Compare both references with the live project before making schema changes. Configure Row Level Security and policies separately before exposing tables through the Supabase REST API; the snapshot does not document RLS policies.
 
 ## `public.sessions`
 
@@ -71,10 +71,44 @@ Primary key: (`team_id`, `player_id`). The adapter writes `session_id`, `team_id
 | `participant2_participant_id` | `uuid` | Nullable; references `competition_participants` within the same session |
 | `winner_participant_id` | `uuid` | Nullable; references `competition_participants` within the same session |
 
+## `public.competition_participants`
+
+One row represents the participant identity used by a competition, backed by either a team or an individual player.
+
+| Column | Type | Null/default/constraint |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key; `gen_random_uuid()` |
+| `session_id` | `uuid` | Not null; references `sessions.id` |
+| `participant_mode` | `text` | Not null; `team` or `individual` |
+| `team_id` | `uuid` | Nullable; references `teams.id` |
+| `player_id` | `uuid` | Nullable; references `players.id` |
+| `created_at` | `timestamptz` | Not null; default `now()` |
+
+## `public.tournament_groups`
+
+| Column | Type | Null/default/constraint |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key; `gen_random_uuid()` |
+| `session_id` | `uuid` | Not null; references `sessions.id` |
+| `group_number` | `integer` | Not null; greater than zero |
+| `name` | `text` | Not null |
+| `qualifying_places` | `integer` | Nullable; if set, greater than zero |
+| `created_at` | `timestamptz` | Not null; default `now()` |
+
+## `public.tournament_group_members`
+
+Membership rows connect a competition participant to a group. The snapshot shows `session_id`, `group_id`, `participant_id`, and `created_at`; the intended key is the combination of session, group, and participant.
+
+## `public.match_progressions`
+
+Progression rows connect an outcome in one match to a slot in another. The snapshot shows `id`, `session_id`, `source_match_id`, `source_outcome`, `target_match_id`, `target_slot`, and `created_at`. `source_outcome` is `winner` or `loser`; `target_slot` is `1` or `2`.
+
 ## Adapter mapping
 
 The Supabase data layer uses `sessions.id` as the session identifier and `matches.id` as the match identifier. Match-facing participant IDs use `competition_participants.id`; team/player names resolve through its `team_id`/`player_id` source and existing `team_members` rows. During compatibility rollout, team match writes also maintain legacy `team1_id`, `team2_id`, and `winner_team_id`. Scores remain in `score1` and `score2`.
 
 `tournament_groups` and `tournament_group_members` store group-stage definitions and membership. The application supports single elimination, double elimination, round robin, and group + knockout for team competitions. Round-robin standings are calculated from completed wins (three points per win; ties are not supported). Group + knockout advances the top two teams from each group, ordered by wins, head-to-head when exactly two teams are tied, then seed. Double elimination requires a power-of-two field and uses one grand final without a reset match. `match_progressions` stores winner/loser outcome links; winner links are also mirrored to legacy `next_match_id`/`next_slot` fields for compatibility.
 
-Migration `0005_multiformat_api_policies.sql` grants anon CRUD access to the new tables, matching the existing public-access model. These policies do not provide per-user isolation.
+The scripts under `supabase/migrations/` are manually applied SQL artifacts, not an automatically managed migration history. Several are staged rollout drafts and should not be run as a fresh install sequence. `0008_shuffle_team_players.sql` defines the `shuffle_team_players` RPC called by the browser provider. Review any script against the live database and current application before applying it. The application uses the public anon key and does not provide per-user isolation; configure database grants and RLS deliberately for the deployment.
+
+The local `supabase/backup/` directory contains row exports and is excluded from Git. Keep database backups outside the source repository and use the database provider's backup facilities for recovery.

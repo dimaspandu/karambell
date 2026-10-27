@@ -312,6 +312,15 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d5a834; outline-offs
 }
 
 @media (max-width: 480px) {
+  #team-player-shuffle-modal { width: calc(100% - 24px); max-height: min(90dvh, 850px); }
+  #team-player-shuffle-modal .modal__form { padding: 20px 18px; }
+  #team-player-shuffle-modal .modal__heading { gap: 10px; margin-bottom: 16px; }
+  #team-player-shuffle-modal .modal__heading h2 { font-size: 23px; }
+  #team-player-shuffle-modal .score-intro { font-size: 12px; line-height: 1.5; }
+  #team-player-shuffle-modal .team-pairing__preview { grid-template-columns: 1fr; max-height: min(32dvh, 220px); }
+  #team-player-shuffle-modal .modal__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #team-player-shuffle-modal .modal__actions .button { min-width: 0; width: 100%; padding-right: 8px; padding-left: 8px; white-space: normal; }
+  #team-player-shuffle-modal .modal__actions .button--primary { grid-column: 1 / -1; }
   .tournament-presentation { padding: 12px; }
   .tournament-presentation__header { flex-direction: column; }
   .tournament-presentation__actions { justify-content: flex-start; }

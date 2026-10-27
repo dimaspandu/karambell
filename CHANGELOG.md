@@ -2,6 +2,12 @@
 
 Notable changes to Karambell are documented here.
 
+## [1.1.1] - 2026-10-27
+
+### Fixed
+
+- Improved the player shuffle dialog layout on mobile, including readable team previews and fully visible action buttons.
+
 ## [1.1.0] - 2026-10-26
 
 ### Added
